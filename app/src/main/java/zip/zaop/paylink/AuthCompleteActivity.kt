@@ -1,5 +1,6 @@
 package zip.zaop.paylink
 
+import android.net.Uri
 import android.os.Bundle
 import android.util.Log
 import android.widget.Button
@@ -11,14 +12,20 @@ import net.openid.appauth.*
 import net.openid.appauth.AuthState.AuthStateAction
 import net.openid.appauth.AuthorizationService.TokenResponseCallback
 import net.openid.appauth.connectivity.DefaultConnectionBuilder
+import okio.IOException
+import okio.buffer
+import okio.source
+import org.chromium.net.CronetEngine
 import org.json.JSONException
 import org.json.JSONObject
+import java.net.HttpURLConnection
+import java.nio.charset.Charset
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicReference
 
 
-const val TICKET_URL = "https://tickets.lidlplus.com/api/v1/"
+const val TICKET_URL = "https://tickets.lidlplus.com/api/v1/NL/list/1"
 
 class AuthCompleteActivity : AppCompatActivity() {
     private var mAuthService: AuthorizationService? = null
@@ -27,6 +34,7 @@ class AuthCompleteActivity : AppCompatActivity() {
     private val KEY_USER_INFO = "userInfo"
     private var mExecutor: ExecutorService? = null
     private val TAG = "COMPLETE";
+    private var m_CronetEngine: CronetEngine? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -55,6 +63,9 @@ class AuthCompleteActivity : AppCompatActivity() {
             }
         }
 
+        val myBuilder = CronetEngine.Builder(this)
+        m_CronetEngine = myBuilder.build()
+
 
         val button: Button = findViewById(R.id.button3)
         button.setOnClickListener {
@@ -62,15 +73,46 @@ class AuthCompleteActivity : AppCompatActivity() {
         }
     }
 
+    @MainThread
     fun getBonnetjes() {
+        val clientAuthentication: ClientAuthentication = ClientSecretBasic("secret")
         mStateManager!!.current.performActionWithFreshTokens(mAuthService!!,
+            clientAuthentication,
             AuthStateAction { accessToken, idToken, ex ->
                 if (ex != null) {
                     // negotiation for fresh tokens failed, check ex for more details
+                    Log.e(TAG, "oh nooooo " + ex.toString())
                     return@AuthStateAction
                 }
 
-                // use the access token to do something ...
+                Log.i(TAG, "gonna do the thing")
+
+                mExecutor!!.submit {
+                    Log.i(TAG, "gonna do the thing pt 2")
+                    try {
+                        var conn: HttpURLConnection =
+                            DefaultConnectionBuilder.INSTANCE.openConnection(
+                                Uri.parse(TICKET_URL)
+                            )
+                        conn.setRequestProperty("Authorization", "Bearer $accessToken")
+                        conn.setRequestProperty("App-Version", "999.99.9")
+                        conn.setRequestProperty("Operating-System", "iOS")
+                        conn.setRequestProperty("App", "com.lidl.eci.lidl.plus")
+                        conn.setRequestProperty("Accept-Language", "NL")
+
+                        val response: String = conn.inputStream.source().buffer()
+                            .readString(Charset.forName("UTF-8"))
+
+                        val test = JSONObject(response)
+
+                        Log.i(TAG, "RESPONSED!!!! " + response)
+                    }catch (ioEx: IOException) {
+                        Log.e(TAG, "Network error when querying userinfo endpoint", ioEx);
+                    } catch (jsonEx: JSONException) {
+                        Log.e(TAG, "Failed to parse userinfo response");
+                    }
+
+                }
             })
     }
 
