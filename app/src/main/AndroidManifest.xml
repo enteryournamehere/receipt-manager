@@ -14,7 +14,20 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.PayLink"
         tools:targetApi="31">
-
+        <activity
+            android:name=".AuthCanceledActivity"
+            android:exported="false">
+            <meta-data
+                android:name="android.app.lib_name"
+                android:value="" />
+        </activity>
+        <activity
+            android:name=".AuthCompleteActivity"
+            android:exported="false">
+            <meta-data
+                android:name="android.app.lib_name"
+                android:value="" />
+        </activity>
         <activity
             android:name=".GameActivity"
             android:exported="true">
