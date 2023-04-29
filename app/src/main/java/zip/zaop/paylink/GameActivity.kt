@@ -20,11 +20,10 @@ class GameActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_game)
 
-
         m_AuthStateManager = AuthStateManager.getInstance(this)
         if (m_AuthStateManager!!.current.isAuthorized) {
             Log.i("BEEP", "IT WORKS");
-            startActivity(Intent(this, AuthCompleteActivity::class.java))
+            startActivity(Intent(this, BonnetjesActivity::class.java))
             return;
         } else {
             Log.i("BEEP", "not yet.")
@@ -55,7 +54,7 @@ class GameActivity : AppCompatActivity() {
 
         m_AuthService!!.performAuthorizationRequest(
             authRequest,
-            PendingIntent.getActivity(this, 0, Intent(this, AuthCompleteActivity::class.java), FLAG_MUTABLE),
+            PendingIntent.getActivity(this, 0, Intent(this, BonnetjesActivity::class.java), FLAG_MUTABLE),
             PendingIntent.getActivity(this, 0, Intent(this, AuthCanceledActivity::class.java), FLAG_MUTABLE)
         )
 

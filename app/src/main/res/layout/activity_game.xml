@@ -8,14 +8,13 @@
 
     <Button
         android:id="@+id/button2"
-        android:layout_width="200dp"
-        android:layout_height="70dp"
-        android:rotation="14"
-        android:rotationY="-47"
+        android:layout_width="298dp"
+        android:layout_height="64dp"
         android:text="Log in with Lidl Plus"
         android:textSize="20sp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.496"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/textView3" />
 
@@ -23,13 +22,11 @@
         android:id="@+id/textView3"
         android:layout_width="307dp"
         android:layout_height="97dp"
-        android:rotationX="-15"
-        android:rotationY="20"
-        android:text="hi press the button \nAND THEN choose\nthis app when done logging in !!"
-        android:textSize="20sp"
+        android:text="druk up de knop\nen kies dan deze app\nna het inloggen"
+        android:textAlignment="center"
+        android:textSize="25sp"
         app:layout_constraintBottom_toTopOf="@+id/button2"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="1.0"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 </androidx.constraintlayout.widget.ConstraintLayout>
