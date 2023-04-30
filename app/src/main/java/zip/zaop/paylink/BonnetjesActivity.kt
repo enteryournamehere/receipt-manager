@@ -100,9 +100,6 @@ class BonnetjesActivity : ComponentActivity() {
                     }
                 }
                 LazyColumn {
-//                    items(receipts, key = { it.date }) { bonnetje ->
-//                        TempNewBonCard(bonnetje)
-//                    }
                     items(receipts) { bonnetje -> // TODO: it.id here is duplicate 0
                         BonnetjeCard(
                             bonnetje,
@@ -155,12 +152,12 @@ class BonnetjesActivity : ComponentActivity() {
         codeInput = "String",
     )
 
-    private val previewData = BonnetjeUiState(
-        id = "test",
-        amount = "4,84",
-        items = listOf(previewListItem),
-        date = "28/04/2023 at 17:02"
-    )
+//    private val previewData = BonnetjeUiState(
+//        id = "test",
+//        amount = "4,84",
+//        items = listOf(previewListItem),
+//        date = "28/04/2023 at 17:02"
+//    )
 
 //    @Preview
 //    @Composable
@@ -177,7 +174,7 @@ class BonnetjesActivity : ComponentActivity() {
 
     @Composable
     private fun BonnetjeCard(
-        data: Receipt, onExpandClicked: (Int) -> Unit = {},
+        data: Receipt, onExpandClicked: (Receipt) -> Unit = {},
         previewForceOpen: Boolean = false
     ) {
         var expanded by rememberSaveable { mutableStateOf(previewForceOpen) }
@@ -211,7 +208,7 @@ class BonnetjesActivity : ComponentActivity() {
                         )
                     }
                     IconButton(onClick = {
-                        expanded = !expanded; if (data.items.isNullOrEmpty()) onExpandClicked(data.id)
+                        expanded = !expanded; if (data.items.isNullOrEmpty()) onExpandClicked(data)
                     }) {
                         if (expanded) {
                             Icon(Icons.Rounded.ExpandLess, "show_less")
@@ -223,7 +220,6 @@ class BonnetjesActivity : ComponentActivity() {
                 }
                 if (expanded) {
                     if (data.items.isNullOrEmpty()) {
-
                         Text(
                             "Loading...",
                             modifier = Modifier.padding(horizontal = 12.dp)

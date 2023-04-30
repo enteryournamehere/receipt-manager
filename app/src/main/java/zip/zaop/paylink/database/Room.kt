@@ -1,7 +1,6 @@
 package zip.zaop.paylink.database
 
 import android.content.Context
-import androidx.lifecycle.LiveData
 import androidx.room.Dao
 import androidx.room.Database
 import androidx.room.Insert
@@ -17,8 +16,11 @@ interface ReceiptDao {
             "left join receipt_item on receipt.id = receipt_item.receipt_id")
     fun loadReceiptsAndItems(): Flow<Map<DatabaseReceipt, List<DatabaseReceiptItem>>>
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    fun insertAll( receipts: List<DatabaseReceipt> )
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    fun insertReceipts(receipts: List<DatabaseReceipt> )
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    fun insertReceiptItems( receipts: List<DatabaseReceiptItem> )
 }
 
 @Database(entities = [DatabaseReceipt::class, DatabaseReceiptItem::class], version = 1)

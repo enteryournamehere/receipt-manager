@@ -1,6 +1,5 @@
 package zip.zaop.paylink.repository
 
-import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -18,7 +17,14 @@ class LidlRepository(private val database: ReceiptsDatabase) {
     suspend fun refreshReceipts(accessToken: String) {
         withContext(Dispatchers.IO) {
             val receipts = LidlApi.retrofitService.getReceipts(1, "Bearer $accessToken")
-            database.receiptDao.insertAll(receipts.asDatabaseModel())
+            database.receiptDao.insertReceipts(receipts.asDatabaseModel())
+        }
+    }
+
+    suspend fun fetchReceipt(accessToken: String, receipt: Receipt) {
+        withContext(Dispatchers.IO) {
+            val details = LidlApi.retrofitService.getReceipt(receipt.storeProvidedId, "Bearer $accessToken")
+            database.receiptDao.insertReceiptItems(details.itemsLine.asDatabaseModel(receipt.id))
         }
     }
 }

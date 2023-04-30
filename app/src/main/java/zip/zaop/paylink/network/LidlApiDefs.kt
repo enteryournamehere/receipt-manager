@@ -1,9 +1,13 @@
 package zip.zaop.paylink.network
 
+import androidx.room.ColumnInfo
+import androidx.room.PrimaryKey
 import kotlinx.serialization.Serializable
 import zip.zaop.paylink.database.DatabaseReceipt
+import zip.zaop.paylink.database.DatabaseReceiptItem
 import zip.zaop.paylink.domain.Receipt
 import zip.zaop.paylink.domain.ReceiptItem
+import java.lang.Float.parseFloat
 
 @Serializable
 data class NetworkLidlReceiptList(
@@ -33,6 +37,21 @@ fun NetworkLidlReceiptList.asDatabaseModel(): List<DatabaseReceipt> {
             store = "lidl",
             date = it.date,
             storeProvidedId = it.id
+        )
+    }
+}
+
+fun List<NetworkLidlReceiptItem>.asDatabaseModel(receiptId: Int): List<DatabaseReceiptItem> {
+    return this.mapIndexed { int, it ->
+        DatabaseReceiptItem(
+            item_id = 0,
+            receiptId = receiptId,
+            unitPrice = parseFloat(it.currentUnitPrice.replace(",",".")),
+            quantity = parseFloat(it.quantity.replace(",",".")), // TODO handle KGs!!
+            storeProvidedItemCode = it.codeInput,
+            description = it.description,
+            totalPrice = parseFloat(it.extendedAmount.replace(",",".")),
+            indexInsideReceipt = int
         )
     }
 }

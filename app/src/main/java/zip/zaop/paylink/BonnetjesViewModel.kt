@@ -47,16 +47,15 @@ class BonnetjesViewModel(application: Application) : AndroidViewModel(applicatio
     private var mExecutor: ExecutorService? = null
     private val TAG = "Biewmoel"
 
+    private val lidlRepository = LidlRepository(getDatabase(application))
+
+    val receipts = lidlRepository.receipts
+
     fun getBonnetjes() {
         _uiState.value = UiState(status = "loading...")
         val clientAuthentication: ClientAuthentication = ClientSecretBasic("secret")
         mStateManager!!.current.performActionWithFreshTokens(mAuthService!!, clientAuthentication, this::getBonnetjes)
     }
-
-
-    private val lidlRepository = LidlRepository(getDatabase(application))
-
-    val receipts = lidlRepository.receipts
 
     @MainThread
     fun getBonnetjes(accessToken: String?, _idToken: String?, ex: AuthorizationException?) {
@@ -66,57 +65,43 @@ class BonnetjesViewModel(application: Application) : AndroidViewModel(applicatio
             return
         }
 
-        Log.i("IMPORTANT", accessToken!!)
-
         viewModelScope.launch {
             try {
-                lidlRepository.refreshReceipts(accessToken)
-
+                lidlRepository.refreshReceipts(accessToken!!)
             }
             catch (networkError: IOException) {
                 Log.e("Error", "NETWORK ERROR!")
             }
-
-            /*
-            try {
-                val response = LidlApi.retrofitService.getReceipts(1, "Bearer $accessToken")
-                val bonnetjes = response.records
-                _uiState.value = UiState(bonnetjes = bonnetjes.map {
-                    BonnetjeUiState(
-                        id = it.id,
-                        date = convertDateTimeString(it.date),
-                        amount = it.totalAmount,
-                        items = listOf()
-                    )
-                } as MutableList<BonnetjeUiState>, status = "loaded successfully")
-            }
-            catch (e: HttpException) {
-                _uiState.value = _uiState.value.copy(status = "epic fail: ${e.message}")
-            }
-            */
         }
     }
 
-
-    fun fetchReceiptInfo(id: Int) {
+    fun fetchReceiptInfo(receipt: Receipt) {
         _uiState.value = _uiState.value.copy(status = "loading bonnetje")
         val clientAuthentication: ClientAuthentication = ClientSecretBasic("secret")
         mStateManager!!.current.performActionWithFreshTokens(mAuthService!!, clientAuthentication
         ) { accessToken: String?, _idToken: String?, ex: AuthorizationException? ->
-            fetchReceiptInfo(accessToken, _idToken, ex, id.toString())
+            fetchReceiptInfo(accessToken, _idToken, ex, receipt)
         }
     }
 
     @MainThread
-    fun fetchReceiptInfo(accessToken: String?, _idToken: String?, ex: AuthorizationException?, id: String) {
+    fun fetchReceiptInfo(accessToken: String?, _idToken: String?, ex: AuthorizationException?, receipt: Receipt) {
         if (ex != null) {
             // negotiation for fresh tokens failed, check ex for more details
             Log.e(TAG, "fresh token problem: $ex")
             return
         }
 
-        Log.i("IMPORTANT", accessToken!!)
+        viewModelScope.launch {
+            try {
+                lidlRepository.fetchReceipt(accessToken!!, receipt)
+            }
+            catch (networkError: IOException) {
+                Log.e("Error", "NETWORK ERROR!")
+            }
+        }
 
+        /*
         viewModelScope.launch {
             try {
                 val response = LidlApi.retrofitService.getReceipt(id, "Bearer $accessToken")
@@ -129,7 +114,7 @@ class BonnetjesViewModel(application: Application) : AndroidViewModel(applicatio
             catch (e: HttpException) {
                 _uiState.value = _uiState.value.copy(status = "epic fail: ${e.message}")
             }
-        }
+        }*/
     }
 
     fun create(context: Context) {
