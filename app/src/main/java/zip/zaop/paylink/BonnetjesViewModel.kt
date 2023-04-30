@@ -1,13 +1,18 @@
 package zip.zaop.paylink
 
+import android.app.Application
 import android.content.Context
 import android.content.Intent
 import android.util.Log
-import android.widget.TextView
 import androidx.annotation.MainThread
 import androidx.annotation.WorkerThread
+import androidx.compose.runtime.mutableStateListOf
+import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.Observer
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.asFlow
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -21,7 +26,11 @@ import net.openid.appauth.ClientSecretBasic
 import net.openid.appauth.TokenRequest
 import net.openid.appauth.TokenResponse
 import net.openid.appauth.connectivity.DefaultConnectionBuilder
+import zip.zaop.paylink.database.getDatabase
+import zip.zaop.paylink.domain.Receipt
 import zip.zaop.paylink.network.LidlApi
+import zip.zaop.paylink.network.NetworkLidlReceiptItem
+import zip.zaop.paylink.repository.LidlRepository
 import okio.IOException
 import retrofit2.HttpException
 import java.time.OffsetDateTime
@@ -29,8 +38,8 @@ import java.time.format.DateTimeFormatter
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
-class BonnetjesViewModel : ViewModel() {
-    private val _uiState = MutableStateFlow(UiState(listOf()))
+class BonnetjesViewModel(application: Application) : AndroidViewModel(application) {
+    private val _uiState = MutableStateFlow(UiState(mutableStateListOf()))
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
 
     private var mAuthService: AuthorizationService? = null
@@ -41,28 +50,81 @@ class BonnetjesViewModel : ViewModel() {
     fun getBonnetjes() {
         _uiState.value = UiState(status = "loading...")
         val clientAuthentication: ClientAuthentication = ClientSecretBasic("secret")
-        mStateManager!!.current.performActionWithFreshTokens(mAuthService!!, clientAuthentication, this::getBonnetjes2)
+        mStateManager!!.current.performActionWithFreshTokens(mAuthService!!, clientAuthentication, this::getBonnetjes)
     }
 
+
+    private val lidlRepository = LidlRepository(getDatabase(application))
+
+    val receipts = lidlRepository.receipts
+
     @MainThread
-    fun getBonnetjes2(accessToken: String?, _idToken: String?, ex: AuthorizationException?) {
+    fun getBonnetjes(accessToken: String?, _idToken: String?, ex: AuthorizationException?) {
         if (ex != null) {
             // negotiation for fresh tokens failed, check ex for more details
             Log.e(TAG, "fresh token problem: $ex")
             return
         }
 
+        Log.i("IMPORTANT", accessToken!!)
+
         viewModelScope.launch {
+            try {
+                lidlRepository.refreshReceipts(accessToken)
+
+            }
+            catch (networkError: IOException) {
+                Log.e("Error", "NETWORK ERROR!")
+            }
+
+            /*
             try {
                 val response = LidlApi.retrofitService.getReceipts(1, "Bearer $accessToken")
                 val bonnetjes = response.records
                 _uiState.value = UiState(bonnetjes = bonnetjes.map {
                     BonnetjeUiState(
+                        id = it.id,
                         date = convertDateTimeString(it.date),
                         amount = it.totalAmount,
-                        items = it.articlesCount
+                        items = listOf()
                     )
-                }, status = "loaded successfully")
+                } as MutableList<BonnetjeUiState>, status = "loaded successfully")
+            }
+            catch (e: HttpException) {
+                _uiState.value = _uiState.value.copy(status = "epic fail: ${e.message}")
+            }
+            */
+        }
+    }
+
+
+    fun fetchReceiptInfo(id: Int) {
+        _uiState.value = _uiState.value.copy(status = "loading bonnetje")
+        val clientAuthentication: ClientAuthentication = ClientSecretBasic("secret")
+        mStateManager!!.current.performActionWithFreshTokens(mAuthService!!, clientAuthentication
+        ) { accessToken: String?, _idToken: String?, ex: AuthorizationException? ->
+            fetchReceiptInfo(accessToken, _idToken, ex, id.toString())
+        }
+    }
+
+    @MainThread
+    fun fetchReceiptInfo(accessToken: String?, _idToken: String?, ex: AuthorizationException?, id: String) {
+        if (ex != null) {
+            // negotiation for fresh tokens failed, check ex for more details
+            Log.e(TAG, "fresh token problem: $ex")
+            return
+        }
+
+        Log.i("IMPORTANT", accessToken!!)
+
+        viewModelScope.launch {
+            try {
+                val response = LidlApi.retrofitService.getReceipt(id, "Bearer $accessToken")
+                var found = uiState.value.bonnetjes.find { state -> state.id == id }
+                var index = uiState.value.bonnetjes.indexOf(found)
+                _uiState.value.bonnetjes[index] = found!!.copy(items = response.itemsLine)
+                _uiState.value = UiState(bonnetjes = _uiState.value.bonnetjes
+                , status = "loaded successfully")
             }
             catch (e: HttpException) {
                 _uiState.value = _uiState.value.copy(status = "epic fail: ${e.message}")
@@ -112,20 +174,14 @@ class BonnetjesViewModel : ViewModel() {
     }
 
 
-    fun convertDateTimeString(dateTimeString: String): String {
-        val offsetDateTime = OffsetDateTime.parse(dateTimeString)
-        val formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy 'at' HH:mm")
-        return offsetDateTime.format(formatter)
-    }
-
     private fun displayNotAuthorized(eep: String) {
-        _uiState.value = _uiState.value.copy(status = "not authd... $eep")
+        _uiState.value = _uiState.value.copy(status = "not authorized... $eep")
     }
     private fun displayLoading(eep: String) {
         _uiState.value = _uiState.value.copy(status = "loading... $eep")
     }
     private fun displayAuthorized(eep: String) {
-        _uiState.value = _uiState.value.copy(status = "authd... $eep")
+        _uiState.value = _uiState.value.copy(status = "authorized! $eep")
     }
 
 
@@ -178,18 +234,19 @@ class BonnetjesViewModel : ViewModel() {
             // WrongThread inference is incorrect for lambdas
             displayNotAuthorized(message)
         } else {
-            displayAuthorized("jel; yeah")
+            displayAuthorized(":D")
         }
     }
 }
 
 data class UiState(
-    val bonnetjes: List<BonnetjeUiState> = listOf(),
+    val bonnetjes: MutableList<BonnetjeUiState> = mutableStateListOf(),
     val status: String = "init",
 )
 
 data class BonnetjeUiState (
+    val id: String,
     val date: String,
     val amount: String,
-    val items: Int,
+    val items: List<NetworkLidlReceiptItem>
 )
