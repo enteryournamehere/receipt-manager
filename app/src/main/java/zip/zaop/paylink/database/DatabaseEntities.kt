@@ -16,6 +16,8 @@ data class DatabaseReceipt constructor(
     val storeProvidedId: String,
     val date: String,
     val store: String, // todo ... yeah. for now: "ah", "lidl"
+    @ColumnInfo(name = "total_amount")
+    val totalAmount: Int, // CENTS
 )
 
 @Entity(tableName="receipt_item", indices = [Index(value = ["receipt_id", "index_inside_receipt"], unique = true)])
@@ -27,13 +29,13 @@ data class DatabaseReceiptItem constructor(
     @ColumnInfo(name = "receipt_id")
     val receiptId: Int, // foreign key
     @ColumnInfo(name = "unit_price")
-    val unitPrice: Float,
+    val unitPrice: Int,
     val quantity: Float,
     @ColumnInfo(name = "store_provided_item_code")
     val storeProvidedItemCode: String?,
     val description: String,
     @ColumnInfo(name = "total_price")
-    val totalPrice: Float,
+    val totalPrice: Int,
 )
 
 fun Map<DatabaseReceipt, List<DatabaseReceiptItem>>.asDomainModel(): List<Receipt> {
@@ -45,6 +47,7 @@ fun Map<DatabaseReceipt, List<DatabaseReceiptItem>>.asDomainModel(): List<Receip
             store = entry.key.store,
             storeProvidedId = entry.key.storeProvidedId,
             date = entry.key.date,
+            totalAmount = entry.key.totalAmount,
             items = entry.value.map { ReceiptItem(
                 id = it.item_id,
                 unitPrice = it.unitPrice,

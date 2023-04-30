@@ -36,7 +36,8 @@ fun NetworkLidlReceiptList.asDatabaseModel(): List<DatabaseReceipt> {
             id = 0,
             store = "lidl",
             date = it.date,
-            storeProvidedId = it.id
+            storeProvidedId = it.id,
+            totalAmount = (parseFloat(it.totalAmount.replace(",", ".")) * 100).toInt()
         )
     }
 }
@@ -46,15 +47,16 @@ fun List<NetworkLidlReceiptItem>.asDatabaseModel(receiptId: Int): List<DatabaseR
         DatabaseReceiptItem(
             item_id = 0,
             receiptId = receiptId,
-            unitPrice = parseFloat(it.currentUnitPrice.replace(",",".")),
-            quantity = parseFloat(it.quantity.replace(",",".")), // TODO handle KGs!!
+            unitPrice = (100 * parseFloat(it.currentUnitPrice.replace(",", "."))).toInt(),
+            quantity = parseFloat(it.quantity.replace(",", ".")), // TODO handle KGs!!
             storeProvidedItemCode = it.codeInput,
             description = it.description,
-            totalPrice = parseFloat(it.extendedAmount.replace(",",".")),
+            totalPrice = (100 * parseFloat(it.extendedAmount.replace(",", "."))).toInt(),
             indexInsideReceipt = int
         )
     }
 }
+
 @Serializable
 data class NetworkLidlReceiptListItem(
     val id: String,
@@ -68,9 +70,6 @@ data class NetworkLidlReceiptListItem(
     val hasReturnedItems: Boolean,
     val returnsCount: Int,
     val returnedAmount: String,
-//    val invoiceRequestId: null,
-//    val invoiceId: null,
-//    val vendor: null,
     val hasHtmlDocument: Boolean,
     val isHtml: Boolean
 )
@@ -82,7 +81,7 @@ data class Currency(
 )
 
 @Serializable
-data class NetworkLidlReceiptDetails (
+data class NetworkLidlReceiptDetails(
     val id: String,
     val barCode: String,
     var sequenceNumber: String,

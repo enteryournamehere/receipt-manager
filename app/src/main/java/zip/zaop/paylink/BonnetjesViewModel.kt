@@ -52,7 +52,7 @@ class BonnetjesViewModel(application: Application) : AndroidViewModel(applicatio
     val receipts = lidlRepository.receipts
 
     fun getBonnetjes() {
-        _uiState.value = UiState(status = "loading...")
+        _uiState.value = UiState(status = "downloading...")
         val clientAuthentication: ClientAuthentication = ClientSecretBasic("secret")
         mStateManager!!.current.performActionWithFreshTokens(mAuthService!!, clientAuthentication, this::getBonnetjes)
     }
@@ -62,6 +62,7 @@ class BonnetjesViewModel(application: Application) : AndroidViewModel(applicatio
         if (ex != null) {
             // negotiation for fresh tokens failed, check ex for more details
             Log.e(TAG, "fresh token problem: $ex")
+            _uiState.value = _uiState.value.copy(status = "problem: $ex")
             return
         }
 
@@ -76,7 +77,7 @@ class BonnetjesViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     fun fetchReceiptInfo(receipt: Receipt) {
-        _uiState.value = _uiState.value.copy(status = "loading bonnetje")
+//        _uiState.value = _uiState.value.copy(status = "loading bonnetje")
         val clientAuthentication: ClientAuthentication = ClientSecretBasic("secret")
         mStateManager!!.current.performActionWithFreshTokens(mAuthService!!, clientAuthentication
         ) { accessToken: String?, _idToken: String?, ex: AuthorizationException? ->
@@ -89,6 +90,7 @@ class BonnetjesViewModel(application: Application) : AndroidViewModel(applicatio
         if (ex != null) {
             // negotiation for fresh tokens failed, check ex for more details
             Log.e(TAG, "fresh token problem: $ex")
+            _uiState.value = _uiState.value.copy(status = "problem: $ex")
             return
         }
 

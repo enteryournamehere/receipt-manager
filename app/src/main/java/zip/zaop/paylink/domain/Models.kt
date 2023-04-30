@@ -5,14 +5,15 @@ data class Receipt(
     val items: List<ReceiptItem>?,
     val store: String,
     val date: String,
+    val totalAmount: Int, // CENTS
     val storeProvidedId: String,
 )
 
 data class ReceiptItem (
     val id: Int,
-    val unitPrice: Float,
+    val unitPrice: Int,
     val quantity: Float,
     val storeProvidedItemCode: String?,
     val description: String,
-    val totalPrice: Float,
+    val totalPrice: Int,
 )

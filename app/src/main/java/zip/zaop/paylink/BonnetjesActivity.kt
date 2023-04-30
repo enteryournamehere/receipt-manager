@@ -78,7 +78,6 @@ class BonnetjesActivity : ComponentActivity() {
         meep.start(intent)
     }
 
-    @Preview(widthDp = 320)
     @Composable
     fun MyApp(
         modifier: Modifier = Modifier,
@@ -100,7 +99,7 @@ class BonnetjesActivity : ComponentActivity() {
                     }
                 }
                 LazyColumn {
-                    items(receipts) { bonnetje -> // TODO: it.id here is duplicate 0
+                    items(receipts) { bonnetje ->
                         BonnetjeCard(
                             bonnetje,
                             onExpandClicked = { bonnetjesViewModel.fetchReceiptInfo(it) })
@@ -134,42 +133,52 @@ class BonnetjesActivity : ComponentActivity() {
                 color = if (!selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.primaryContainer
             )
             Text(
-                data.totalPrice.toString(), modifier = Modifier,
+                remember { convertCentsToString(data.totalPrice) }, modifier = Modifier,
                 color = if (!selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.primaryContainer
             )
         }
     }
 
-    private val previewListItem = NetworkLidlReceiptItem(
-        currentUnitPrice = "String",
-        quantity = "String",
-        isWeight = false,
-        originalAmount = "String",
-        extendedAmount = "5 euro",
-        description = "Among us",
-        taxGroup = "String",
-        taxGroupName = "String",
-        codeInput = "String",
+    private val previewData = Receipt(
+        id = 1,
+        items = listOf(ReceiptItem(
+            unitPrice = 500,
+            quantity = 1f,
+            description = "Vijf euro",
+            storeProvidedItemCode = null,
+            totalPrice = 500,
+            id = 2
+        ), ReceiptItem(
+            unitPrice = 195,
+            quantity = 3.1f,
+            description = "Dure dingen",
+            storeProvidedItemCode = null,
+            totalPrice = 3894,
+            id = 2
+        )),
+        date = "2023-04-28T17:55:04+00:00",
+        storeProvidedId = "220006738220230428206050",
+        store = "lidl",
+        totalAmount = 223
     )
 
-//    private val previewData = BonnetjeUiState(
-//        id = "test",
-//        amount = "4,84",
-//        items = listOf(previewListItem),
-//        date = "28/04/2023 at 17:02"
-//    )
-
-//    @Preview
-//    @Composable
-//    private fun BonnetjeCardPreview() {
-//        BonnetjeCard(data = previewData, previewForceOpen = true)
-//    }
-
+    @Preview
+    @Composable
+    private fun BonnetjeCardPreview() {
+        BonnetjeCard(data = previewData, previewForceOpen = true)
+    }
 
     fun convertDateTimeString(dateTimeString: String): String {
         val offsetDateTime = OffsetDateTime.parse(dateTimeString)
         val formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy 'at' HH:mm")
         return offsetDateTime.format(formatter)
+    }
+
+    fun convertCentsToString(cents: Int): String {
+        val euros = cents / 100;
+        val remainder = cents % 100;
+        val remainderString = remainder.toString().padStart(2, '0')
+        return "€$euros,$remainderString"
     }
 
     @Composable
@@ -178,7 +187,6 @@ class BonnetjesActivity : ComponentActivity() {
         previewForceOpen: Boolean = false
     ) {
         var expanded by rememberSaveable { mutableStateOf(previewForceOpen) }
-        var niceTimeString = remember { convertDateTimeString(data.date) }
 
         Card(
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
@@ -200,9 +208,9 @@ class BonnetjesActivity : ComponentActivity() {
                             .weight(1f)
                             .padding(12.dp)
                     ) {
-                        Text(text = niceTimeString)
+                        Text(text = remember { convertDateTimeString(data.date) })
                         Text(
-                            text = "€" + 0, // TODO: sum price of items, or just put it in the dabababas
+                            text = remember { convertCentsToString(data.totalAmount) }, // TODO: sum price of items, or just put it in the dabababas
                             style = MaterialTheme.typography.headlineMedium,
                             modifier = Modifier.padding(top = 5.dp)
                         )

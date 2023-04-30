@@ -23,7 +23,7 @@ interface ReceiptDao {
     fun insertReceiptItems( receipts: List<DatabaseReceiptItem> )
 }
 
-@Database(entities = [DatabaseReceipt::class, DatabaseReceiptItem::class], version = 1)
+@Database(entities = [DatabaseReceipt::class, DatabaseReceiptItem::class], version = 2)
 abstract class ReceiptsDatabase: RoomDatabase() {
     abstract val receiptDao: ReceiptDao
 }
@@ -35,7 +35,7 @@ fun getDatabase(context: Context): ReceiptsDatabase {
         if (!::INSTANCE.isInitialized) {
             INSTANCE = Room.databaseBuilder(context.applicationContext,
                     ReceiptsDatabase::class.java,
-                    "receipts").build()
+                    "receipts").fallbackToDestructiveMigration().build()
         }
     }
     return INSTANCE
