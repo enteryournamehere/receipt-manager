@@ -1,21 +1,19 @@
 package zip.zaop.paylink
 
+//import androidx.core.content.Context.getSystemService
 import android.app.Application
 import android.content.Context
 import android.content.Intent
 import android.util.Log
 import androidx.annotation.MainThread
 import androidx.annotation.WorkerThread
-import androidx.compose.runtime.mutableStateListOf
 import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.Observer
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.asFlow
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import net.openid.appauth.AppAuthConfiguration
 import net.openid.appauth.AuthorizationException
@@ -28,33 +26,106 @@ import net.openid.appauth.TokenResponse
 import net.openid.appauth.connectivity.DefaultConnectionBuilder
 import zip.zaop.paylink.database.getDatabase
 import zip.zaop.paylink.domain.Receipt
-import zip.zaop.paylink.network.LidlApi
+import zip.zaop.paylink.domain.ReceiptItem
 import zip.zaop.paylink.network.NetworkLidlReceiptItem
 import zip.zaop.paylink.repository.LidlRepository
+import zip.zaop.paylink.util.convertCentsToString
 import okio.IOException
-import retrofit2.HttpException
-import java.time.OffsetDateTime
-import java.time.format.DateTimeFormatter
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
-class BonnetjesViewModel(application: Application) : AndroidViewModel(application) {
-    private val _uiState = MutableStateFlow(UiState(mutableStateListOf()))
-    val uiState: StateFlow<UiState> = _uiState.asStateFlow()
 
+data class UiState(
+//    val bonnetjes: MutableList<BonnetjeUiState> = mutableStateListOf(),
+    val status: String = "init",
+    val selectedCount: Int = 0,
+    val selectedAmount: Int = 0,
+)
+
+data class BonnetjeUiState(
+    val id: String,
+    val date: String,
+    val amount: String,
+    val items: List<NetworkLidlReceiptItem>
+)
+
+data class FullInfo(
+    val receipt: Receipt,
+    val selectedItems: Set<Int>,
+)
+
+data class TestState(
+    val selectedItems: Map<Int, List<Int>>
+)
+
+class BonnetjesViewModel(application: Application) : AndroidViewModel(application) {
     private var mAuthService: AuthorizationService? = null
     private var mStateManager: AuthStateManager? = null
     private var mExecutor: ExecutorService? = null
-    private val TAG = "Biewmoel"
+    private val TAG = "binomiaalverdeling"
 
     private val lidlRepository = LidlRepository(getDatabase(application))
 
-    val receipts = lidlRepository.receipts
+//    val receiptsPlusOld =
+//        receipts.map { receipts -> receipts.map { receipt -> FullInfo(receipt, selectionState.getOrDefault(receipt, setOf())) } }
+
+//    private var selectionState: MutableMap<Receipt, MutableSet<Int>> = mutableMapOf()
+
 
     fun getBonnetjes() {
-        _uiState.value = UiState(status = "downloading...")
+        _uiState.value = _uiState.value.copy(status = "downloading...")
         val clientAuthentication: ClientAuthentication = ClientSecretBasic("secret")
-        mStateManager!!.current.performActionWithFreshTokens(mAuthService!!, clientAuthentication, this::getBonnetjes)
+        mStateManager!!.current.performActionWithFreshTokens(
+            mAuthService!!,
+            clientAuthentication,
+            this::getBonnetjes
+        )
+    }
+
+    private val _uiState = MutableStateFlow(UiState())
+    val uiState: StateFlow<UiState> = _uiState.asStateFlow()
+
+    val receipts: Flow<List<Receipt>> = lidlRepository.receipts
+
+    private val _selectionStateFlow = MutableStateFlow<Map<Int, Set<Int>>>(emptyMap())
+    private val selectionStateFlow = _selectionStateFlow.asStateFlow()
+
+    // order doesn't make a difference
+    val receiptsPlus: Flow<List<FullInfo>> =
+        receipts.combine(selectionStateFlow) { receipts, selectionState ->
+            receipts.map { receipt ->
+                FullInfo(
+                    receipt,
+                    selectionState.getOrDefault(receipt.id, emptySet())
+                )
+            }
+        }
+
+    // if the user selects an item, mark it as selected ,so that the ui updates
+    fun select(receipt: Receipt, item: ReceiptItem, state: Boolean) {
+        val updatedSet = (_selectionStateFlow.value[receipt.id] ?: emptySet()).toMutableSet()
+        if (state) {
+            val added = updatedSet.add(item.indexInsideReceipt)
+            if (added)
+                _uiState.value = _uiState.value.copy(
+                    selectedCount = _uiState.value.selectedCount.inc(),
+                    selectedAmount = _uiState.value.selectedAmount + item.totalPrice
+                )
+        } else {
+            val removed = updatedSet.remove(item.indexInsideReceipt)
+            if (removed) _uiState.value = _uiState.value.copy(
+                selectedCount = _uiState.value.selectedCount.dec(),
+                selectedAmount = _uiState.value.selectedAmount - item.totalPrice
+            )
+        }
+        _selectionStateFlow.value = _selectionStateFlow.value + (receipt.id to updatedSet)
+    }
+
+    fun getSelectedAmountToCopy(): String {
+        val valueToCopy = convertCentsToString(_uiState.value.selectedAmount, ".", false)
+        _selectionStateFlow.value = emptyMap()
+        _uiState.value = _uiState.value.copy(selectedAmount = 0, selectedCount = 0)
+        return valueToCopy
     }
 
     @MainThread
@@ -62,16 +133,18 @@ class BonnetjesViewModel(application: Application) : AndroidViewModel(applicatio
         if (ex != null) {
             // negotiation for fresh tokens failed, check ex for more details
             Log.e(TAG, "fresh token problem: $ex")
-            _uiState.value = _uiState.value.copy(status = "problem: $ex")
+            _uiState.value =
+                _uiState.value.copy(status = "could not get fresh token (network error?)")
             return
         }
 
         viewModelScope.launch {
             try {
                 lidlRepository.refreshReceipts(accessToken!!)
-            }
-            catch (networkError: IOException) {
+                _uiState.value = _uiState.value.copy(status = "done")
+            } catch (networkError: IOException) {
                 Log.e("Error", "NETWORK ERROR!")
+                _uiState.value = _uiState.value.copy(status = "network error")
             }
         }
     }
@@ -79,44 +152,37 @@ class BonnetjesViewModel(application: Application) : AndroidViewModel(applicatio
     fun fetchReceiptInfo(receipt: Receipt) {
 //        _uiState.value = _uiState.value.copy(status = "loading bonnetje")
         val clientAuthentication: ClientAuthentication = ClientSecretBasic("secret")
-        mStateManager!!.current.performActionWithFreshTokens(mAuthService!!, clientAuthentication
+        mStateManager!!.current.performActionWithFreshTokens(
+            mAuthService!!, clientAuthentication
         ) { accessToken: String?, _idToken: String?, ex: AuthorizationException? ->
             fetchReceiptInfo(accessToken, _idToken, ex, receipt)
         }
     }
 
     @MainThread
-    fun fetchReceiptInfo(accessToken: String?, _idToken: String?, ex: AuthorizationException?, receipt: Receipt) {
+    fun fetchReceiptInfo(
+        accessToken: String?,
+        _idToken: String?,
+        ex: AuthorizationException?,
+        receipt: Receipt
+    ) {
         if (ex != null) {
             // negotiation for fresh tokens failed, check ex for more details
             Log.e(TAG, "fresh token problem: $ex")
-            _uiState.value = _uiState.value.copy(status = "problem: $ex")
+            _uiState.value =
+                _uiState.value.copy(status = "could not get fresh token (network error?)")
             return
         }
 
         viewModelScope.launch {
             try {
                 lidlRepository.fetchReceipt(accessToken!!, receipt)
-            }
-            catch (networkError: IOException) {
+                _uiState.value = _uiState.value.copy(status = "done")
+            } catch (networkError: IOException) {
                 Log.e("Error", "NETWORK ERROR!")
+                _uiState.value = _uiState.value.copy(status = "network error")
             }
         }
-
-        /*
-        viewModelScope.launch {
-            try {
-                val response = LidlApi.retrofitService.getReceipt(id, "Bearer $accessToken")
-                var found = uiState.value.bonnetjes.find { state -> state.id == id }
-                var index = uiState.value.bonnetjes.indexOf(found)
-                _uiState.value.bonnetjes[index] = found!!.copy(items = response.itemsLine)
-                _uiState.value = UiState(bonnetjes = _uiState.value.bonnetjes
-                , status = "loaded successfully")
-            }
-            catch (e: HttpException) {
-                _uiState.value = _uiState.value.copy(status = "epic fail: ${e.message}")
-            }
-        }*/
     }
 
     fun create(context: Context) {
@@ -164,9 +230,11 @@ class BonnetjesViewModel(application: Application) : AndroidViewModel(applicatio
     private fun displayNotAuthorized(eep: String) {
         _uiState.value = _uiState.value.copy(status = "not authorized... $eep")
     }
+
     private fun displayLoading(eep: String) {
         _uiState.value = _uiState.value.copy(status = "loading... $eep")
     }
+
     private fun displayAuthorized(eep: String) {
         _uiState.value = _uiState.value.copy(status = "authorized! $eep")
     }
@@ -225,15 +293,3 @@ class BonnetjesViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 }
-
-data class UiState(
-    val bonnetjes: MutableList<BonnetjeUiState> = mutableStateListOf(),
-    val status: String = "init",
-)
-
-data class BonnetjeUiState (
-    val id: String,
-    val date: String,
-    val amount: String,
-    val items: List<NetworkLidlReceiptItem>
-)

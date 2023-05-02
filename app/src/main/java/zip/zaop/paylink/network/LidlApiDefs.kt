@@ -8,6 +8,7 @@ import zip.zaop.paylink.database.DatabaseReceiptItem
 import zip.zaop.paylink.domain.Receipt
 import zip.zaop.paylink.domain.ReceiptItem
 import java.lang.Float.parseFloat
+import kotlin.math.roundToInt
 
 @Serializable
 data class NetworkLidlReceiptList(
@@ -37,7 +38,7 @@ fun NetworkLidlReceiptList.asDatabaseModel(): List<DatabaseReceipt> {
             store = "lidl",
             date = it.date,
             storeProvidedId = it.id,
-            totalAmount = (parseFloat(it.totalAmount.replace(",", ".")) * 100).toInt()
+            totalAmount = (parseFloat(it.totalAmount.replace(",", ".")) * 100).roundToInt()
         )
     }
 }
@@ -47,11 +48,11 @@ fun List<NetworkLidlReceiptItem>.asDatabaseModel(receiptId: Int): List<DatabaseR
         DatabaseReceiptItem(
             item_id = 0,
             receiptId = receiptId,
-            unitPrice = (100 * parseFloat(it.currentUnitPrice.replace(",", "."))).toInt(),
+            unitPrice = (100 * parseFloat(it.currentUnitPrice.replace(",", "."))).roundToInt(),
             quantity = parseFloat(it.quantity.replace(",", ".")), // TODO handle KGs!!
             storeProvidedItemCode = it.codeInput,
             description = it.description,
-            totalPrice = (100 * parseFloat(it.extendedAmount.replace(",", "."))).toInt(),
+            totalPrice = (100 * parseFloat(it.extendedAmount.replace(",", "."))).roundToInt(),
             indexInsideReceipt = int
         )
     }

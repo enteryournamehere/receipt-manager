@@ -11,6 +11,7 @@ data class Receipt(
 
 data class ReceiptItem (
     val id: Int,
+    val indexInsideReceipt: Int,
     val unitPrice: Int,
     val quantity: Float,
     val storeProvidedItemCode: String?,

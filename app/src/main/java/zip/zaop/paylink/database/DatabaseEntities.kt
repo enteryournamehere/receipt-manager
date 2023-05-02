@@ -50,6 +50,7 @@ fun Map<DatabaseReceipt, List<DatabaseReceiptItem>>.asDomainModel(): List<Receip
             totalAmount = entry.key.totalAmount,
             items = entry.value.map { ReceiptItem(
                 id = it.item_id,
+                indexInsideReceipt = it.indexInsideReceipt,
                 unitPrice = it.unitPrice,
                 quantity = it.quantity,
                 storeProvidedItemCode = it.storeProvidedItemCode,

@@ -13,8 +13,8 @@ import net.openid.appauth.*
 
 class GameActivity : AppCompatActivity() {
 
-    var m_AuthStateManager: AuthStateManager? = null;
-    var m_AuthService: AuthorizationService? = null;
+    var m_AuthStateManager: AuthStateManager? = null
+    var m_AuthService: AuthorizationService? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -22,9 +22,9 @@ class GameActivity : AppCompatActivity() {
 
         m_AuthStateManager = AuthStateManager.getInstance(this)
         if (m_AuthStateManager!!.current.isAuthorized) {
-            Log.i("BEEP", "IT WORKS");
+            Log.i("BEEP", "IT WORKS")
             startActivity(Intent(this, BonnetjesActivity::class.java))
-            return;
+            return
         } else {
             Log.i("BEEP", "not yet.")
         }
