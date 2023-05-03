@@ -150,7 +150,6 @@ class BonnetjesViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     fun fetchReceiptInfo(receipt: Receipt) {
-//        _uiState.value = _uiState.value.copy(status = "loading bonnetje")
         val clientAuthentication: ClientAuthentication = ClientSecretBasic("secret")
         mStateManager!!.current.performActionWithFreshTokens(
             mAuthService!!, clientAuthentication

@@ -14,6 +14,7 @@ import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -223,41 +224,43 @@ class BonnetjesActivity : ComponentActivity() {
         showSelectionIcon: Boolean,
         onSelectionChanged: (Boolean) -> Unit
     ) {
+        val selectedColor = MaterialTheme.colorScheme.secondaryContainer;
+        val unselectedColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.0f)
         val backgroundColor: Color by animateColorAsState(
-            targetValue =
-            if (selected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent
+            targetValue = if (selected) selectedColor else unselectedColor
         )
+        val interactionSource = remember { MutableInteractionSource() }
         Row(
             modifier = Modifier
                 .padding(bottom = 7.dp)
                 .clip(RoundedCornerShape(size = 20.dp))
                 .background(backgroundColor)
-                .selectable(selected = selected, enabled = true, onClick = {
-                    onSelectionChanged(!selected)
-                })
+                .selectable(
+                    selected = selected,
+                    enabled = true,
+                    interactionSource = interactionSource,
+                    indication = null,
+                    onClick = {
+                        onSelectionChanged(!selected)
+                    })
                 .padding(all = 10.dp)
-                .defaultMinSize(minHeight = 24.dp)
+                .defaultMinSize(minHeight = 24.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            val contentColor =
-                if (!selected) MaterialTheme.colorScheme.onSecondaryContainer
-                else MaterialTheme.colorScheme.onSurfaceVariant
             AnimatedVisibility(visible = showSelectionIcon) {
                 Icon(
                     if (selected) Icons.Rounded.CheckCircleOutline
                     else Icons.Rounded.RadioButtonUnchecked,
                     "Selected",
-                    tint = contentColor
                 )
             }
             if (showSelectionIcon)
                 Spacer(modifier = Modifier.size(ButtonDefaults.IconSpacing))
             Text(
                 data.description, modifier = Modifier.weight(1f),
-                color = contentColor
             )
             Text(
                 remember { convertCentsToString(data.totalPrice) }, modifier = Modifier,
-                color = contentColor
             )
         }
     }
@@ -334,7 +337,7 @@ class BonnetjesActivity : ComponentActivity() {
                     ) {
                         Text(text = remember { convertDateTimeString(data.receipt.date) })
                         Text(
-                            text = remember { convertCentsToString(data.receipt.totalAmount) }, // TODO: sum price of items, or just put it in the dabababas
+                            text = remember { convertCentsToString(data.receipt.totalAmount) },
                             style = MaterialTheme.typography.headlineMedium,
                             modifier = Modifier.padding(top = 5.dp)
                         )
@@ -374,7 +377,11 @@ class BonnetjesActivity : ComponentActivity() {
                                 val isSelected =
                                     data.selectedItems.contains(item.indexInsideReceipt)
 
-                                ItemCard(item, selected = isSelected, showSelectionIcon = data.selectedItems.isNotEmpty()) {
+                                ItemCard(
+                                    item,
+                                    selected = isSelected,
+                                    showSelectionIcon = data.selectedItems.isNotEmpty()
+                                ) {
                                     onItemSelected(data.receipt, item, it)
                                 }
                             }
