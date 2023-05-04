@@ -13,7 +13,8 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface ReceiptDao {
     @Query("select * from receipt " +
-            "left join receipt_item on receipt.id = receipt_item.receipt_id")
+            "left join receipt_item on receipt.id = receipt_item.receipt_id " +
+            "order by receipt.date desc")
     fun loadReceiptsAndItems(): Flow<Map<DatabaseReceipt, List<DatabaseReceiptItem>>>
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
