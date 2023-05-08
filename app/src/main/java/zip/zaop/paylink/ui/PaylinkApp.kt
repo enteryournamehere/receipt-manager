@@ -1,6 +1,9 @@
 package zip.zaop.paylink.ui
 
+import android.app.Activity
 import android.content.Context
+import android.content.ContextWrapper
+import android.content.Intent
 import android.os.Build
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
@@ -11,35 +14,51 @@ import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.defaultMinSize
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.ArrowOutward
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.CheckCircleOutline
 import androidx.compose.material.icons.rounded.ContentCopy
+import androidx.compose.material.icons.rounded.DoneAll
 import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.ExpandMore
+import androidx.compose.material.icons.rounded.Handyman
+import androidx.compose.material.icons.rounded.ManageAccounts
+import androidx.compose.material.icons.rounded.PedalBike
 import androidx.compose.material.icons.rounded.RadioButtonUnchecked
+import androidx.compose.material.icons.rounded.ReceiptLong
 import androidx.compose.material.icons.rounded.Refresh
-import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.ShoppingBasket
+import androidx.compose.material.icons.rounded.ShoppingCart
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -55,14 +74,19 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavDestination.Companion.hierarchy
+import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import zip.zaop.paylink.AccountsViewModel
 import zip.zaop.paylink.BonnetjesViewModel
 import zip.zaop.paylink.FullInfo
 import zip.zaop.paylink.R
@@ -94,17 +118,17 @@ fun TopBar(
         }
     }
 }
-
+fun Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
+}
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MyApp(
-    modifier: Modifier = Modifier,
     applicationContext: Context,
-    bonnetjesViewModel: BonnetjesViewModel = viewModel(),
 ) {
-    val uiState by bonnetjesViewModel.uiState.collectAsState()
-    val receipts by bonnetjesViewModel.receiptsPlus.collectAsState(initial = listOf())
-
-    val showToast = {text: String ->
+    val showToast = { text: String ->
         Toast.makeText(
             applicationContext,
             text,
@@ -112,47 +136,157 @@ fun MyApp(
         ).show()
     }
 
-//    val navController = rememberNavController()
-//    NavHost(navController, startDestination = "receipts") {
-//        composable("receipts") {
-            Surface(modifier) {
-                Column {
-                    TopBar(uiState.status) { bonnetjesViewModel.getBonnetjes() }
-                    LazyColumn(modifier = Modifier.weight(1f)) {
-                        items(receipts) { receipt ->
-                            BonnetjeCard(
-                                receipt,
-                                onExpandClicked = { bonnetjesViewModel.fetchReceiptInfo(it) },
-                                onItemSelected = { receipty, index, selected ->
-                                    bonnetjesViewModel.select(receipty, index, selected)
-                                },
+    val navController = rememberNavController()
+
+    val items = listOf(
+        Screen.Receipts,
+        Screen.Accounts,
+    )
+    
+    val intent = LocalContext.current.findActivity()!!.intent
+
+    Scaffold(
+        bottomBar = {
+            NavigationBar {
+                val navBackStackEntry by navController.currentBackStackEntryAsState()
+                val currentDestination = navBackStackEntry?.destination
+
+                items.forEach { screen ->
+
+                    NavigationBarItem(
+                        selected = currentDestination?.hierarchy?.any { it.route == screen.route } == true,
+
+                        onClick = {
+                            navController.navigate(screen.route) {
+                                // Pop up to the start destination of the graph to
+                                // avoid building up a large stack of destinations
+                                // on the back stack as users select items
+                                popUpTo(navController.graph.findStartDestination().id) {
+                                    saveState = true
+                                }
+                                // Avoid multiple copies of the same destination when
+                                // reselecting the same item
+                                launchSingleTop = true
+                                // Restore state when reselecting a previously selected item
+                                restoreState = true
+                            }
+                        },
+                        icon = {
+                            Icon(
+                                imageVector = screen.icon,
+                                contentDescription = "${screen.text} icon",
                             )
                         }
-                    }
-                    val clipboardManager = LocalClipboardManager.current
-                    if (uiState.selectedCount > 0)
-                        BottomActionBar(uiState.selectedCount, uiState.selectedAmount, showToast) {
-                            clipboardManager.setText(AnnotatedString(bonnetjesViewModel.getSelectedAmountToCopy()))
-
-                            if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.S_V2)
-                                showToast("Copied to clipboard")
-                        }
+                    )
                 }
             }
-//        }
-//        composable("accounts") {
-//            Text("eep")
-//        }
-//    }
-
-
+        },
+        content = { padding ->
+            NavHost(
+                navController,
+                startDestination = Screen.Receipts.route,
+                Modifier.padding(padding)
+            ) {
+                composable(Screen.Receipts.route) {
+                    Surface { BonnetjesComposable(showToast = showToast, intent = intent) }
+                }
+                composable(Screen.Accounts.route) {
+                    Surface(Modifier.fillMaxSize()) { AccountsComposable() }
+                }
+            }
+        }
+    )
 }
 
-//data class BottomNavItem(
-//    val name: String,
-//    val route: String,
-//    val icon: ImageVector,
-//)
+@Composable
+private fun BonnetjesComposable(
+    showToast: (String) -> Unit,
+    intent: Intent,
+    bonnetjesViewModel: BonnetjesViewModel = viewModel(),
+) {
+    remember { bonnetjesViewModel.start(intent) }
+    val uiState by bonnetjesViewModel.uiState.collectAsState()
+    val receipts by bonnetjesViewModel.receiptsPlus.collectAsState(initial = listOf())
+
+    Column {
+        TopBar(uiState.status) { bonnetjesViewModel.getBonnetjes() }
+        LazyColumn(modifier = Modifier.weight(1f)) {
+            items(receipts) { receipt ->
+                BonnetjeCard(
+                    receipt,
+                    onExpandClicked = { bonnetjesViewModel.fetchReceiptInfo(it) },
+                    onItemSelected = { receipty, index, selected ->
+                        bonnetjesViewModel.select(receipty, index, selected)
+                    },
+                )
+            }
+        }
+        val clipboardManager = LocalClipboardManager.current
+        if (uiState.selectedCount > 0)
+            BottomActionBar(
+                uiState.selectedCount,
+                uiState.selectedAmount,
+                showToast
+            ) {
+                clipboardManager.setText(AnnotatedString(bonnetjesViewModel.getSelectedAmountToCopy()))
+
+                if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.S_V2)
+                    showToast("Copied to clipboard")
+            }
+    }
+}
+
+@Composable
+private fun AccountsComposable(
+    accountsViewModel: AccountsViewModel = viewModel(),
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+        modifier = Modifier
+            .width(IntrinsicSize.Min)
+    ) {
+        Text("under construction")
+        Spacer(Modifier.height(20.dp))
+        ConnectAccountButton("Lidl", Icons.Rounded.ShoppingBasket, true, {})
+        ConnectAccountButton("Albert Heijn", Icons.Rounded.ShoppingCart, false, {})
+        ConnectAccountButton("Jumbo", Icons.Rounded.PedalBike, true, {})
+        ConnectAccountButton("WieBetaaltWat", Icons.Rounded.DoneAll, false, {})
+    }
+}
+
+@Composable
+private fun ConnectAccountButton(
+    title: String,
+    icon: ImageVector,
+    isConnected: Boolean,
+    onClickHandler: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        colors = if (isConnected) CardDefaults.cardColors() else CardDefaults.outlinedCardColors(),
+        border = if (isConnected) null else CardDefaults.outlinedCardBorder(),
+        modifier = modifier
+            .width(250.dp)
+            .padding(5.dp)
+
+    ) {
+        Row(modifier = Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(icon, title)
+            Spacer(modifier = Modifier.size(ButtonDefaults.IconSpacing))
+            Text(title, Modifier.weight(1f))
+            IconButton(onClick = { /*TODO*/ }) {
+                Icon(if (isConnected) Icons.Rounded.Check else Icons.Rounded.Add, "GO")
+            }
+        }
+    }
+}
+
+sealed class Screen(val route: String, val text: String, val icon: ImageVector) {
+    object Receipts : Screen("profile", "fssfddsf", Icons.Rounded.ReceiptLong)
+    object Accounts : Screen("friendslist", "bbbbbb", Icons.Rounded.ManageAccounts)
+}
+
 
 @Composable
 private fun BottomActionBar(
@@ -290,7 +424,10 @@ private fun CardItemList(
             modifier = Modifier.padding(horizontal = 12.dp)
         )
     } else {
-        Column {
+        Column(
+            Modifier.clickable(remember { MutableInteractionSource() },
+                indication = null, onClick = {})
+        ) {
             data.receipt.items.forEach { item ->
                 val isSelected =
                     data.selectedItems.contains(item.indexInsideReceipt)
@@ -369,6 +506,32 @@ fun TopBarPreview() {
 @Preview
 //    @Preview(uiMode = UI_MODE_NIGHT_YES)
 @Composable
+fun Beepy() {
+    PaylinkTheme {
+        Surface {
+            AccountsComposable()
+        }
+    }
+}
+
+@Preview
+//    @Preview(uiMode = UI_MODE_NIGHT_YES)
+@Composable
+fun AccountButtonPreview() {
+    PaylinkTheme {
+        Surface {
+            ConnectAccountButton(
+                title = "Preview",
+                icon = Icons.Rounded.Handyman,
+                isConnected = true,
+                onClickHandler = {})
+        }
+    }
+}
+
+@Preview
+//    @Preview(uiMode = UI_MODE_NIGHT_YES)
+@Composable
 private fun CardPreview() {
     val previewData = FullInfo(
         receipt = Receipt(
@@ -401,7 +564,11 @@ private fun CardPreview() {
 
     PaylinkTheme {
         Surface {
-            BonnetjeCard(data = previewData, previewForceOpen = true, onExpandClicked = {}, onItemSelected = { _, _, _ -> })
+            BonnetjeCard(
+                data = previewData,
+                previewForceOpen = true,
+                onExpandClicked = {},
+                onItemSelected = { _, _, _ -> })
         }
     }
 }

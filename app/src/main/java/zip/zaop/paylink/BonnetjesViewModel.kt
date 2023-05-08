@@ -2,7 +2,6 @@ package zip.zaop.paylink
 
 //import androidx.core.content.Context.getSystemService
 import android.app.Application
-import android.content.Context
 import android.content.Intent
 import android.util.Log
 import androidx.annotation.MainThread
@@ -28,6 +27,7 @@ import zip.zaop.paylink.database.getDatabase
 import zip.zaop.paylink.domain.Receipt
 import zip.zaop.paylink.domain.ReceiptItem
 import zip.zaop.paylink.network.NetworkLidlReceiptItem
+import zip.zaop.paylink.repository.AuthRepository
 import zip.zaop.paylink.repository.LidlRepository
 import zip.zaop.paylink.util.convertCentsToString
 import okio.IOException
@@ -65,6 +65,8 @@ class BonnetjesViewModel(application: Application) : AndroidViewModel(applicatio
     private val TAG = "binomiaalverdeling"
 
     private val lidlRepository = LidlRepository(getDatabase(application))
+
+//    private val authManagerTwo =
 
 //    val receiptsPlusOld =
 //        receipts.map { receipts -> receipts.map { receipt -> FullInfo(receipt, selectionState.getOrDefault(receipt, setOf())) } }
@@ -184,8 +186,10 @@ class BonnetjesViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
-    fun create(context: Context) {
-        mStateManager = AuthStateManager.getInstance(context)
+    init {
+        val context = application.applicationContext;
+
+        mStateManager = AuthStateManager.getInstance(context, lidlRepository)
 
         mAuthService = AuthorizationService(
             context,
@@ -211,12 +215,16 @@ class BonnetjesViewModel(application: Application) : AndroidViewModel(applicatio
         Log.i(TAG, "response: " + response.toString() + " ; ex=" + ex.toString())
         if (response != null || ex != null) {
             Log.i(TAG, "Either is not null.")
-            mStateManager!!.updateAfterAuthorization(response, ex)
+            viewModelScope.launch {
+                mStateManager!!.updateAfterAuthorization(response, ex)
+            }
         }
         if (response?.authorizationCode != null) {
             // authorization code exchange is required
             Log.i(TAG, "Auth code exchange is required.")
-            mStateManager!!.updateAfterAuthorization(response, ex)
+            viewModelScope.launch {
+                mStateManager!!.updateAfterAuthorization(response, ex)
+            }
             exchangeAuthorizationCode(response) // the good stuff :)
         } else if (ex != null) {
             displayNotAuthorized("Authorization flow failed: " + ex.message)
@@ -271,7 +279,9 @@ class BonnetjesViewModel(application: Application) : AndroidViewModel(applicatio
         tokenResponse: TokenResponse?,
         authException: AuthorizationException?
     ) {
-        mStateManager!!.updateAfterTokenResponse(tokenResponse, authException)
+        viewModelScope.launch {
+            mStateManager!!.updateAfterTokenResponse(tokenResponse, authException)
+        }
 
     }
 
@@ -280,7 +290,9 @@ class BonnetjesViewModel(application: Application) : AndroidViewModel(applicatio
         tokenResponse: TokenResponse?,
         authException: AuthorizationException?
     ) {
-        mStateManager!!.updateAfterTokenResponse(tokenResponse, authException)
+        viewModelScope.launch {
+            mStateManager!!.updateAfterTokenResponse(tokenResponse, authException)
+        }
         if (!mStateManager!!.current.isAuthorized) {
             val message = ("Authorization Code exchange failed"
                     + if (authException != null) authException.error else "")

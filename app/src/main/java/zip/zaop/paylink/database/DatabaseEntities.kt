@@ -38,6 +38,17 @@ data class DatabaseReceiptItem constructor(
     val totalPrice: Int,
 )
 
+@Entity(tableName="auth_state")
+data class DatabaseAuthState constructor(
+    @PrimaryKey
+    val platform: LinkablePlatform, // ah, lidl, wbw, etc.
+    val state: String, // JSON :-)
+)
+
+enum class LinkablePlatform {
+    APPIE, LIDL, JUMBO, WBW
+}
+
 fun Map<DatabaseReceipt, List<DatabaseReceiptItem>>.asDomainModel(): List<Receipt> {
     Log.i("CONV", "Running asDomainModel, map size: ${this.size}")
 

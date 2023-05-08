@@ -6,21 +6,35 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.util.Log
-import android.widget.Button
-import androidx.appcompat.app.AppCompatActivity
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.compose.material3.Button
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runBlocking
 import net.openid.appauth.*
+import zip.zaop.paylink.database.getDatabase
+import zip.zaop.paylink.repository.LidlRepository
+import zip.zaop.paylink.ui.theme.PaylinkTheme
 
 
-class GameActivity : AppCompatActivity() {
+class GameActivity : ComponentActivity() {
 
     var m_AuthStateManager: AuthStateManager? = null
     var m_AuthService: AuthorizationService? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_game)
 
-        m_AuthStateManager = AuthStateManager.getInstance(this)
+        setContent {
+            PaylinkTheme {
+                InitialLoginButton()
+            }
+        }
+
+        val lidlRepository = LidlRepository(getDatabase(application))
+        m_AuthStateManager = AuthStateManager.getInstance(this.applicationContext, lidlRepository)
         if (m_AuthStateManager!!.current.isAuthorized) {
             Log.i("BEEP", "IT WORKS")
             startActivity(Intent(this, BonnetjesActivity::class.java))
@@ -29,10 +43,6 @@ class GameActivity : AppCompatActivity() {
             Log.i("BEEP", "not yet.")
         }
 
-        val button: Button = findViewById(R.id.button2)
-        button.setOnClickListener {
-            doLidlLogin()
-        }
     }
 
     private fun doLidlLogin() {
@@ -50,7 +60,9 @@ class GameActivity : AppCompatActivity() {
             .setScope("openid profile offline_access lpprofile lpapis").build()
 
         m_AuthService = AuthorizationService(this)
-        m_AuthStateManager!!.replace(AuthState(serviceConfig))
+        runBlocking(Dispatchers.IO) {
+            m_AuthStateManager!!.replace(AuthState(serviceConfig))
+        }
 
         m_AuthService!!.performAuthorizationRequest(
             authRequest,
@@ -58,6 +70,15 @@ class GameActivity : AppCompatActivity() {
             PendingIntent.getActivity(this, 0, Intent(this, AuthCanceledActivity::class.java), FLAG_MUTABLE)
         )
 
+    }
+
+    @Composable
+    fun InitialLoginButton() {
+        Button(onClick = {
+            doLidlLogin()
+        }) {
+            Text("bbbbbb")
+        }
     }
 
 }

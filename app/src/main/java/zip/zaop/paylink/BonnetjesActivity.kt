@@ -78,14 +78,14 @@ class BonnetjesActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        val meep: BonnetjesViewModel by viewModels()
-        meep.create(this)
+//        val meep: BonnetjesViewModel by viewModels()
+//        meep.create(this)
 
         Log.i(TAG, "creating activiy")
 
         setContent {
             PaylinkTheme {
-                MyApp(modifier = Modifier.fillMaxSize(), applicationContext)
+                MyApp(applicationContext)
             }
         }
 
@@ -94,9 +94,9 @@ class BonnetjesActivity : ComponentActivity() {
     override fun onStart() {
         super.onStart()
 
-        val meep: BonnetjesViewModel by viewModels()
-        meep.create(this)
-        meep.start(intent)
+//        val meep: BonnetjesViewModel by viewModels()
+//        meep.create(this)
+//        meep.start(intent)
     }
 
 

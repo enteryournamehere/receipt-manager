@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Dao
 import androidx.room.Database
 import androidx.room.Insert
+import androidx.room.MapInfo
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Room
@@ -22,9 +23,19 @@ interface ReceiptDao {
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     fun insertReceiptItems( receipts: List<DatabaseReceiptItem> )
+
+    @Query("select * from auth_state where platform = :platform")
+    fun getAuthState(platform: LinkablePlatform): DatabaseAuthState
+
+    @MapInfo(keyColumn = "platform", valueColumn = "state")
+    @Query("select * from auth_state")
+    fun getAuthStates(): Flow<Map<LinkablePlatform, String>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun setAuthState(state: DatabaseAuthState)
 }
 
-@Database(entities = [DatabaseReceipt::class, DatabaseReceiptItem::class], version = 2)
+@Database(entities = [DatabaseReceipt::class, DatabaseReceiptItem::class, DatabaseAuthState::class], version = 3)
 abstract class ReceiptsDatabase: RoomDatabase() {
     abstract val receiptDao: ReceiptDao
 }
