@@ -19,6 +19,7 @@ import android.util.Log
 import androidx.annotation.AnyThread
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.runBlocking
 import net.openid.appauth.AuthState
@@ -53,18 +54,20 @@ class AuthStateManager private constructor(context: Context, lidlRepository: Lid
     val current: AuthState
         get() {
             if (mCurrentAuthState.get() != null) {
+                Log.i(TAG, "Returning existing auth state.")
                 return mCurrentAuthState.get()
             }
-            Log.i("AUTH", "Hiii")
+            Log.i("AUTH", "Going to read state from DB.")
             val state = runBlocking(Dispatchers.IO) {
-                Log.i("AUTH", "im gaming")
                 val state = readState()
-                Log.i("AUTH", "haha yes")
+                Log.i("AUTH", "Done reading.")
                 state
             }
             return if (mCurrentAuthState.compareAndSet(null, state)) {
+                Log.i(TAG, "First branch.")
                 state
             } else {
+                Log.i(TAG, "Second branch.")
                 mCurrentAuthState.get()
             }
         }
@@ -113,22 +116,27 @@ class AuthStateManager private constructor(context: Context, lidlRepository: Lid
 
     @AnyThread
     private suspend fun readState(): AuthState {
+        Log.i("TAG", "readstate start")
         var authStates: Map<LinkablePlatform, String> = emptyMap()
 
         auths.take(1).collect { authMap ->
             authStates = authMap
         }
+        Log.i("TAG", "readstate read")
 
         if (authStates.containsKey(LinkablePlatform.LIDL)) {
             val currentState = authStates[LinkablePlatform.LIDL]!!
             return try {
-                AuthState.jsonDeserialize(currentState)
+                val mep = AuthState.jsonDeserialize(currentState)
+                Log.i(TAG, "Read auth state from database.")
+                mep
             } catch (ex: JSONException) {
                 Log.w(TAG, "Failed to deserialize stored auth state - discarding")
                 AuthState()
             }
         }
         else {
+            Log.w(TAG, "No saved auth state found.")
             return AuthState()
         }
     }

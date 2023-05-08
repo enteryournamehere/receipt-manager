@@ -204,7 +204,7 @@ private fun BonnetjesComposable(
     intent: Intent,
     bonnetjesViewModel: BonnetjesViewModel = viewModel(),
 ) {
-    remember { bonnetjesViewModel.start(intent) }
+    bonnetjesViewModel.start(intent)
     val uiState by bonnetjesViewModel.uiState.collectAsState()
     val receipts by bonnetjesViewModel.receiptsPlus.collectAsState(initial = listOf())
 
@@ -233,52 +233,6 @@ private fun BonnetjesComposable(
                 if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.S_V2)
                     showToast("Copied to clipboard")
             }
-    }
-}
-
-@Composable
-private fun AccountsComposable(
-    accountsViewModel: AccountsViewModel = viewModel(),
-) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-        modifier = Modifier
-            .width(IntrinsicSize.Min)
-    ) {
-        Text("under construction")
-        Spacer(Modifier.height(20.dp))
-        ConnectAccountButton("Lidl", Icons.Rounded.ShoppingBasket, true, {})
-        ConnectAccountButton("Albert Heijn", Icons.Rounded.ShoppingCart, false, {})
-        ConnectAccountButton("Jumbo", Icons.Rounded.PedalBike, true, {})
-        ConnectAccountButton("WieBetaaltWat", Icons.Rounded.DoneAll, false, {})
-    }
-}
-
-@Composable
-private fun ConnectAccountButton(
-    title: String,
-    icon: ImageVector,
-    isConnected: Boolean,
-    onClickHandler: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Card(
-        colors = if (isConnected) CardDefaults.cardColors() else CardDefaults.outlinedCardColors(),
-        border = if (isConnected) null else CardDefaults.outlinedCardBorder(),
-        modifier = modifier
-            .width(250.dp)
-            .padding(5.dp)
-
-    ) {
-        Row(modifier = Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(icon, title)
-            Spacer(modifier = Modifier.size(ButtonDefaults.IconSpacing))
-            Text(title, Modifier.weight(1f))
-            IconButton(onClick = { /*TODO*/ }) {
-                Icon(if (isConnected) Icons.Rounded.Check else Icons.Rounded.Add, "GO")
-            }
-        }
     }
 }
 
