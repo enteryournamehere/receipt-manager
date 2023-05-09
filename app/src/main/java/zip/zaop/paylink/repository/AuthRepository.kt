@@ -7,6 +7,7 @@ import zip.zaop.paylink.database.DatabaseAuthState
 import zip.zaop.paylink.database.LinkablePlatform
 import zip.zaop.paylink.database.ReceiptsDatabase
 
+// currently unused, might refactor later
 class AuthRepository(private val database: ReceiptsDatabase) {
     val accounts: Flow<Map<LinkablePlatform, String>> =
         database.receiptDao.getAuthStates()

@@ -43,7 +43,9 @@ fun AccountsComposable(
     ) {
         Text("under construction")
         Spacer(Modifier.height(20.dp))
-        ConnectAccountButton("Lidl", Icons.Rounded.ShoppingBasket, true, {accountsViewModel.doLidlLogin()})
+        ConnectAccountButton("Lidl", Icons.Rounded.ShoppingBasket, true, {
+            accountsViewModel.doLidlLogin()
+        })
         ConnectAccountButton("Albert Heijn", Icons.Rounded.ShoppingCart, false, {})
         ConnectAccountButton("Jumbo", Icons.Rounded.PedalBike, true, {})
         ConnectAccountButton("WieBetaaltWat", Icons.Rounded.DoneAll, false, {})

@@ -34,7 +34,6 @@ class AccountsViewModel(application: Application) : AndroidViewModel(application
     // cuz rn it does not support that
 
 
-
     init {
         val context = application.applicationContext;
 
@@ -49,33 +48,71 @@ class AccountsViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun doLidlLogin() {
-        val serviceConfig = AuthorizationServiceConfiguration(
-            Uri.parse("https://accounts.lidl.com/connect/authorize"),
-            Uri.parse("https://accounts.lidl.com/connect/token")
+        doLogin(
+            "LidlPlusNativeClient",
+            "com.lidlplus.app://callback",
+            "openid profile offline_access lpprofile lpapis",
+            AuthorizationServiceConfiguration(
+                Uri.parse("https://accounts.lidl.com/connect/authorize"),
+                Uri.parse("https://accounts.lidl.com/connect/token")
+            )
         )
+    }
 
+    // https://login.ah.nl/secure/oauth/authorize?client_id=appie&redirect_uri=appie://login-exit&response_type=code
+    //
+    // responds with header: location: https://login.ah.nl/login?response_type=code&redirect_uri=appie://login-exit&client_id=appie&fdii=39caeb4d302bc6b1
+    // note: fdii is the same as x-fraud-detection-installation-id header
+    // note note: it does not give a shit about the fraud detection
+
+    // x-requested-with: com.icemobile.albertheijn
+    //
+    // .../token
+    // x-application: AHWEBSHOP
+    // x-fraud-detection-installation-id: 39caeb4d302bc6b1
+    fun doAppieLogin() {
+        doLogin(
+            "appie",
+            "appie://login-exit",
+            "",
+            AuthorizationServiceConfiguration(
+                Uri.parse("https://login.ah.nl/secure/oauth/authorize"),
+                Uri.parse("https://api.ah.nl/mobile-auth/v1/auth/token")
+            )
+        )
+    }
+
+    private fun doLogin(
+        clientId: String,
+        callbackUri: String,
+        scope: String,
+        serviceConfig: AuthorizationServiceConfiguration
+    ) {
         val authRequest: AuthorizationRequest = AuthorizationRequest.Builder(
             serviceConfig,
-            "LidlPlusNativeClient",
+            clientId,
             ResponseTypeValues.CODE,
-            Uri.parse("com.lidlplus.app://callback")
-        )
-            .setScope("openid profile offline_access lpprofile lpapis").build()
+            Uri.parse(callbackUri)
+        ).setScope(scope).build()
 
-//        m_AuthService = AuthorizationService(this)
         runBlocking(Dispatchers.IO) {
             mStateManager!!.replace(AuthState(serviceConfig))
         }
 
         mAuthService!!.performAuthorizationRequest(
             authRequest,
-            PendingIntent.getActivity(this.getApplication(), 0, Intent(this.getApplication(), BonnetjesActivity::class.java),
+            PendingIntent.getActivity(
+                this.getApplication(),
+                0,
+                Intent(this.getApplication(), BonnetjesActivity::class.java),
                 PendingIntent.FLAG_MUTABLE
             ),
-            PendingIntent.getActivity(this.getApplication(), 0, Intent(this.getApplication(), AuthCanceledActivity::class.java),
+            PendingIntent.getActivity(
+                this.getApplication(),
+                0,
+                Intent(this.getApplication(), AuthCanceledActivity::class.java),
                 PendingIntent.FLAG_MUTABLE
             )
         )
-
     }
 }
