@@ -194,10 +194,9 @@ class BonnetjesViewModel(application: Application) : AndroidViewModel(applicatio
     init {
         val context = application.applicationContext;
 
-        mStateManagers[LinkablePlatform.LIDL] =
-            AuthStateManager.getInstance(context, receiptRepository, LinkablePlatform.LIDL)
-        mStateManagers[LinkablePlatform.APPIE] =
-            AuthStateManager.getInstance(context, receiptRepository, LinkablePlatform.APPIE)
+        mStateManagers[LinkablePlatform.LIDL] = AuthStateManager.getInstance(context, receiptRepository, LinkablePlatform.LIDL)
+        mStateManagers[LinkablePlatform.APPIE] = AuthStateManager.getInstance(context, receiptRepository, LinkablePlatform.APPIE)
+        mStateManagers[LinkablePlatform.JUMBO] = AuthStateManager.getInstance(context, receiptRepository, LinkablePlatform.JUMBO)
 
         mAuthServices[LinkablePlatform.LIDL] = AuthorizationService(
             context,
@@ -207,6 +206,13 @@ class BonnetjesViewModel(application: Application) : AndroidViewModel(applicatio
         )
 
         mAuthServices[LinkablePlatform.APPIE] = AuthorizationService(
+            context,
+            AppAuthConfiguration.Builder()
+                .setConnectionBuilder(DefaultConnectionBuilder.INSTANCE)
+                .build()
+        )
+
+        mAuthServices[LinkablePlatform.JUMBO] = AuthorizationService(
             context,
             AppAuthConfiguration.Builder()
                 .setConnectionBuilder(DefaultConnectionBuilder.INSTANCE)
@@ -225,8 +231,15 @@ class BonnetjesViewModel(application: Application) : AndroidViewModel(applicatio
         val ex = AuthorizationException.fromIntent(intent)
         if (response != null) {
             val platform =
-                if (response.request.clientId == "appie") LinkablePlatform.APPIE
-                else LinkablePlatform.LIDL
+                when (response.request.clientId) {
+                    "appie" -> LinkablePlatform.APPIE
+                    "LidlPlusNativeClient" -> LinkablePlatform.LIDL
+                    "ZVa0cW0LadbDHINgrBLuEAp5amVBKQh1" -> LinkablePlatform.JUMBO
+                    else -> {
+                        Log.e(TAG, "Unknown platform!")
+                        return
+                    }
+                }
 
             if (mStateManagers[platform]!!.current.isAuthorized) {
                 _uiState.value = _uiState.value.copy(status = "intent but authorized")

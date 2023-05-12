@@ -6,6 +6,9 @@ import android.content.Intent
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.runBlocking
 import net.openid.appauth.AppAuthConfiguration
 import net.openid.appauth.AuthState
@@ -19,6 +22,9 @@ import zip.zaop.paylink.database.getDatabase
 import zip.zaop.paylink.repository.ReceiptRepository
 import java.util.concurrent.ExecutorService
 
+data class ConnectedAccounts(
+    val connections: Map<LinkablePlatform, Boolean> = mapOf()
+)
 
 class AccountsViewModel(application: Application) : AndroidViewModel(application) {
     private var mAuthServices: MutableMap<LinkablePlatform, AuthorizationService> = mutableMapOf();
@@ -27,6 +33,9 @@ class AccountsViewModel(application: Application) : AndroidViewModel(application
     private val TAG = "accounts"
 
     private val receiptRepository = ReceiptRepository(getDatabase(application))
+
+    private val _uiState = MutableStateFlow(ConnectedAccounts())
+    val uiState: StateFlow<ConnectedAccounts> = _uiState.asStateFlow()
 
     // todo find out validity duration of wbw tokens
     // wbw room database i guess?
@@ -38,8 +47,21 @@ class AccountsViewModel(application: Application) : AndroidViewModel(application
     init {
         val context = application.applicationContext;
 
-        mStateManagers[LinkablePlatform.LIDL] = AuthStateManager.getInstance(context, receiptRepository, LinkablePlatform.LIDL)
-        mStateManagers[LinkablePlatform.APPIE] = AuthStateManager.getInstance(context, receiptRepository, LinkablePlatform.APPIE)
+        mStateManagers[LinkablePlatform.LIDL] =
+            AuthStateManager.getInstance(context, receiptRepository, LinkablePlatform.LIDL)
+        mStateManagers[LinkablePlatform.APPIE] =
+            AuthStateManager.getInstance(context, receiptRepository, LinkablePlatform.APPIE)
+        mStateManagers[LinkablePlatform.JUMBO] =
+            AuthStateManager.getInstance(context, receiptRepository, LinkablePlatform.JUMBO)
+
+        _uiState.value =
+            ConnectedAccounts(
+                mapOf(
+                    LinkablePlatform.LIDL to mStateManagers[LinkablePlatform.LIDL]!!.current.isAuthorized,
+                    LinkablePlatform.APPIE to mStateManagers[LinkablePlatform.APPIE]!!.current.isAuthorized,
+                    LinkablePlatform.JUMBO to mStateManagers[LinkablePlatform.JUMBO]!!.current.isAuthorized,
+                )
+            )
 
         mAuthServices[LinkablePlatform.LIDL] = AuthorizationService(
             context,
@@ -49,6 +71,13 @@ class AccountsViewModel(application: Application) : AndroidViewModel(application
         )
 
         mAuthServices[LinkablePlatform.APPIE] = AuthorizationService(
+            context,
+            AppAuthConfiguration.Builder()
+                .setConnectionBuilder(DefaultConnectionBuilder.INSTANCE)
+                .build()
+        )
+
+        mAuthServices[LinkablePlatform.JUMBO] = AuthorizationService(
             context,
             AppAuthConfiguration.Builder()
                 .setConnectionBuilder(DefaultConnectionBuilder.INSTANCE)
@@ -65,6 +94,19 @@ class AccountsViewModel(application: Application) : AndroidViewModel(application
             AuthorizationServiceConfiguration(
                 Uri.parse("https://accounts.lidl.com/connect/authorize"),
                 Uri.parse("https://accounts.lidl.com/connect/token")
+            )
+        )
+    }
+
+    fun doJumboLogin() {
+        doLogin(
+            LinkablePlatform.JUMBO,
+            "ZVa0cW0LadbDHINgrBLuEAp5amVBKQh1",
+            "jumboextras://home",
+            "openid offline_access",
+            AuthorizationServiceConfiguration(
+                Uri.parse("https://auth.jumbo.com/authorize"),
+                Uri.parse("https://auth.jumbo.com/oauth/token")
             )
         )
     }

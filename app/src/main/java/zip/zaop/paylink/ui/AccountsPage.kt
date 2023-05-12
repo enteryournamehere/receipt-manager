@@ -23,12 +23,15 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import zip.zaop.paylink.AccountsViewModel
+import zip.zaop.paylink.database.LinkablePlatform
 
 
 @Composable
@@ -41,15 +44,18 @@ fun AccountsComposable(
         modifier = Modifier
             .width(IntrinsicSize.Min)
     ) {
+        val connections by accountsViewModel.uiState.collectAsState()
         Text("under construction")
         Spacer(Modifier.height(20.dp))
-        ConnectAccountButton("Lidl", Icons.Rounded.ShoppingBasket, true, {
+        ConnectAccountButton("Lidl", Icons.Rounded.ShoppingBasket, connections.connections[LinkablePlatform.LIDL]!!, {
             accountsViewModel.doLidlLogin()
         })
-        ConnectAccountButton("Albert Heijn", Icons.Rounded.ShoppingCart, false, {
+        ConnectAccountButton("Albert Heijn", Icons.Rounded.ShoppingCart, connections.connections[LinkablePlatform.APPIE]!!, {
             accountsViewModel.doAppieLogin()
         })
-        ConnectAccountButton("Jumbo", Icons.Rounded.PedalBike, true, {})
+        ConnectAccountButton("Jumbo", Icons.Rounded.PedalBike, connections.connections[LinkablePlatform.JUMBO]!!, {
+            accountsViewModel.doJumboLogin()
+        })
         ConnectAccountButton("WieBetaaltWat", Icons.Rounded.DoneAll, false, {})
     }
 }
