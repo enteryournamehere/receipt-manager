@@ -13,4 +13,4 @@ dependencyResolutionManagement {
     }
 }
 rootProject.name = "PayLink"
-include ':app'
+include ':app', ':appauth:library'

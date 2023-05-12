@@ -1,12 +1,8 @@
 package zip.zaop.paylink.network
 
-import androidx.room.ColumnInfo
-import androidx.room.PrimaryKey
 import kotlinx.serialization.Serializable
 import zip.zaop.paylink.database.DatabaseReceipt
 import zip.zaop.paylink.database.DatabaseReceiptItem
-import zip.zaop.paylink.domain.Receipt
-import zip.zaop.paylink.domain.ReceiptItem
 import java.lang.Float.parseFloat
 import kotlin.math.roundToInt
 
@@ -17,19 +13,6 @@ data class NetworkLidlReceiptList(
     val totalCount: Int,
     val records: List<NetworkLidlReceiptListItem>
 )
-
-// illegal !!! go through repo
-//fun NetworkLidlReceiptList.asDomainModel(): List<Receipt> {
-//    return records.map {
-//        Receipt(
-//            items = null,
-//            store = "lidl",
-//            date = it.date,
-//            storeProvidedId = it.id,
-//
-//        )
-//    }
-//}
 
 fun NetworkLidlReceiptList.asDatabaseModel(): List<DatabaseReceipt> {
     return records.map {

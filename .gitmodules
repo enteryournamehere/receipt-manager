@@ -1,0 +1,3 @@
+[submodule "appauth"]
+	path = appauth
+	url = https://github.com/enteryournamehere/AppAuth-Android

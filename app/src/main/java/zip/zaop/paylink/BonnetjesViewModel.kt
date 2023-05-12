@@ -23,14 +23,13 @@ import net.openid.appauth.ClientSecretBasic
 import net.openid.appauth.TokenRequest
 import net.openid.appauth.TokenResponse
 import net.openid.appauth.connectivity.DefaultConnectionBuilder
+import zip.zaop.paylink.database.LinkablePlatform
 import zip.zaop.paylink.database.getDatabase
 import zip.zaop.paylink.domain.Receipt
 import zip.zaop.paylink.domain.ReceiptItem
 import zip.zaop.paylink.network.NetworkLidlReceiptItem
-import zip.zaop.paylink.repository.AuthRepository
-import zip.zaop.paylink.repository.LidlRepository
+import zip.zaop.paylink.repository.ReceiptRepository
 import zip.zaop.paylink.util.convertCentsToString
-import okio.IOException
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
@@ -59,35 +58,36 @@ data class TestState(
 )
 
 class BonnetjesViewModel(application: Application) : AndroidViewModel(application) {
-    private var mAuthService: AuthorizationService? = null
-    private var mStateManager: AuthStateManager? = null
     private var mExecutor: ExecutorService? = null
     private val TAG = "binomiaalverdeling"
+    private var mAuthServices: MutableMap<LinkablePlatform, AuthorizationService> = mutableMapOf();
+    private var mStateManagers: MutableMap<LinkablePlatform, AuthStateManager> = mutableMapOf();
 
-    private val lidlRepository = LidlRepository(getDatabase(application))
+    private val receiptRepository = ReceiptRepository(getDatabase(application))
 
-//    private val authManagerTwo =
-
-//    val receiptsPlusOld =
-//        receipts.map { receipts -> receipts.map { receipt -> FullInfo(receipt, selectionState.getOrDefault(receipt, setOf())) } }
-
-//    private var selectionState: MutableMap<Receipt, MutableSet<Int>> = mutableMapOf()
-
-
-    fun getBonnetjes() {
+    fun getBonnetjes(platform: LinkablePlatform) {
         _uiState.value = _uiState.value.copy(status = "downloading...")
-        val clientAuthentication: ClientAuthentication = ClientSecretBasic("secret")
-        mStateManager!!.current.performActionWithFreshTokens(
-            mAuthService!!,
-            clientAuthentication,
-            this::getBonnetjes
-        )
+        if (platform == LinkablePlatform.LIDL) {
+            val clientAuthentication: ClientAuthentication = ClientSecretBasic("secret")
+            mStateManagers[platform]!!.current.performActionWithFreshTokens(
+                mAuthServices[platform]!!,
+                clientAuthentication,
+            ) { accessToken: String?, _idToken: String?, ex: AuthorizationException? ->
+                this.getBonnetjes(platform, accessToken, _idToken, ex)
+            }
+        } else {
+            mStateManagers[platform]!!.current.performActionWithFreshTokens(
+                mAuthServices[platform]!!
+            ) { accessToken: String?, _idToken: String?, ex: AuthorizationException? ->
+                this.getBonnetjes(platform, accessToken, _idToken, ex)
+            }
+        }
     }
 
     private val _uiState = MutableStateFlow(UiState())
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
 
-    val receipts: Flow<List<Receipt>> = lidlRepository.receipts
+    val receipts: Flow<List<Receipt>> = receiptRepository.receipts
 
     private val _selectionStateFlow = MutableStateFlow<Map<Int, Set<Int>>>(emptyMap())
     private val selectionStateFlow = _selectionStateFlow.asStateFlow()
@@ -131,7 +131,12 @@ class BonnetjesViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     @MainThread
-    fun getBonnetjes(accessToken: String?, _idToken: String?, ex: AuthorizationException?) {
+    fun getBonnetjes(
+        platform: LinkablePlatform,
+        accessToken: String?,
+        _idToken: String?,
+        ex: AuthorizationException?
+    ) {
         if (ex != null) {
             // negotiation for fresh tokens failed, check ex for more details
             Log.e(TAG, "fresh token problem: $ex")
@@ -142,19 +147,19 @@ class BonnetjesViewModel(application: Application) : AndroidViewModel(applicatio
 
         viewModelScope.launch {
             try {
-                lidlRepository.refreshReceipts(accessToken!!)
+                receiptRepository.refreshReceipts(platform, accessToken!!)
                 _uiState.value = _uiState.value.copy(status = "done")
-            } catch (networkError: IOException) {
-                Log.e("Error", "NETWORK ERROR!")
+            } catch (networkError: Exception) {
+                Log.e("Error", "NETWORK ERROR! $networkError")
                 _uiState.value = _uiState.value.copy(status = "network error")
             }
         }
     }
 
-    fun fetchReceiptInfo(receipt: Receipt) {
+    fun fetchReceiptInfo(platform: LinkablePlatform, receipt: Receipt) {
         val clientAuthentication: ClientAuthentication = ClientSecretBasic("secret")
-        mStateManager!!.current.performActionWithFreshTokens(
-            mAuthService!!, clientAuthentication
+        mStateManagers[platform]!!.current.performActionWithFreshTokens(
+            mAuthServices[platform]!!, clientAuthentication
         ) { accessToken: String?, _idToken: String?, ex: AuthorizationException? ->
             fetchReceiptInfo(accessToken, _idToken, ex, receipt)
         }
@@ -177,10 +182,10 @@ class BonnetjesViewModel(application: Application) : AndroidViewModel(applicatio
 
         viewModelScope.launch {
             try {
-                lidlRepository.fetchReceipt(accessToken!!, receipt)
+                receiptRepository.fetchReceipt(accessToken!!, receipt)
                 _uiState.value = _uiState.value.copy(status = "done")
-            } catch (networkError: IOException) {
-                Log.e("Error", "NETWORK ERROR!")
+            } catch (networkError: Exception) {
+                Log.e("Error", "NETWORK ERROR! $networkError")
                 _uiState.value = _uiState.value.copy(status = "network error")
             }
         }
@@ -189,9 +194,19 @@ class BonnetjesViewModel(application: Application) : AndroidViewModel(applicatio
     init {
         val context = application.applicationContext;
 
-        mStateManager = AuthStateManager.getInstance(context, lidlRepository)
+        mStateManagers[LinkablePlatform.LIDL] =
+            AuthStateManager.getInstance(context, receiptRepository, LinkablePlatform.LIDL)
+        mStateManagers[LinkablePlatform.APPIE] =
+            AuthStateManager.getInstance(context, receiptRepository, LinkablePlatform.APPIE)
 
-        mAuthService = AuthorizationService(
+        mAuthServices[LinkablePlatform.LIDL] = AuthorizationService(
+            context,
+            AppAuthConfiguration.Builder()
+                .setConnectionBuilder(DefaultConnectionBuilder.INSTANCE)
+                .build()
+        )
+
+        mAuthServices[LinkablePlatform.APPIE] = AuthorizationService(
             context,
             AppAuthConfiguration.Builder()
                 .setConnectionBuilder(DefaultConnectionBuilder.INSTANCE)
@@ -203,33 +218,40 @@ class BonnetjesViewModel(application: Application) : AndroidViewModel(applicatio
         if (mExecutor == null || mExecutor!!.isShutdown) {
             mExecutor = Executors.newSingleThreadExecutor()
         }
-        if (mStateManager!!.current.isAuthorized) {
-            _uiState.value = _uiState.value.copy(status = "authorized")
-            return
-        }
 
         // the stored AuthState is incomplete, so check if we are currently receiving the result of
         // the authorization flow from the browser.
         val response = AuthorizationResponse.fromIntent(intent)
         val ex = AuthorizationException.fromIntent(intent)
-        Log.i(TAG, "response: " + response.toString() + " ; ex=" + ex.toString())
-        if (response != null || ex != null) {
-            Log.i(TAG, "Either is not null.")
-            viewModelScope.launch {
-                mStateManager!!.updateAfterAuthorization(response, ex)
+        if (response != null) {
+            val platform =
+                if (response.request.clientId == "appie") LinkablePlatform.APPIE
+                else LinkablePlatform.LIDL
+
+            if (mStateManagers[platform]!!.current.isAuthorized) {
+                _uiState.value = _uiState.value.copy(status = "intent but authorized")
+                return
             }
-        }
-        if (response?.authorizationCode != null) {
-            // authorization code exchange is required
-            Log.i(TAG, "Auth code exchange is required.")
-            viewModelScope.launch {
-                mStateManager!!.updateAfterAuthorization(response, ex)
+
+            Log.i(TAG, "response: " + response.toString() + " ; ex=" + ex.toString())
+            if (response != null || ex != null) {
+                Log.i(TAG, "Either is not null.")
+                viewModelScope.launch {
+                    mStateManagers[platform]!!.updateAfterAuthorization(response, ex)
+                }
             }
-            exchangeAuthorizationCode(response) // the good stuff :)
-        } else if (ex != null) {
-            displayNotAuthorized("Authorization flow failed: " + ex.message)
-        } else {
-            displayNotAuthorized("No authorization state retained - reauthorization required")
+            if (response?.authorizationCode != null) {
+                // authorization code exchange is required
+                Log.i(TAG, "Auth code exchange is required.")
+                viewModelScope.launch {
+                    mStateManagers[platform]!!.updateAfterAuthorization(response, ex)
+                }
+                exchangeAuthorizationCode(platform, response) // the good stuff :)
+            } else if (ex != null) {
+                displayNotAuthorized("Authorization flow failed: " + ex.message)
+            } else {
+                displayNotAuthorized("No authorization state retained - reauthorization required")
+            }
         }
     }
 
@@ -248,12 +270,17 @@ class BonnetjesViewModel(application: Application) : AndroidViewModel(applicatio
 
 
     @MainThread
-    private fun exchangeAuthorizationCode(authorizationResponse: AuthorizationResponse) {
+    private fun exchangeAuthorizationCode(
+        platform: LinkablePlatform,
+        authorizationResponse: AuthorizationResponse
+    ) {
         displayLoading("Exchanging authorization code")
         performTokenRequest(
+            platform,
             authorizationResponse.createTokenExchangeRequest()
         ) { tokenResponse: TokenResponse?, authException: AuthorizationException? ->
             handleCodeExchangeResponse(
+                platform,
                 tokenResponse,
                 authException
             )
@@ -262,38 +289,47 @@ class BonnetjesViewModel(application: Application) : AndroidViewModel(applicatio
 
     @MainThread
     private fun performTokenRequest(
+        platform: LinkablePlatform,
         request: TokenRequest,
         callback: AuthorizationService.TokenResponseCallback
     ) {
-
-        val clientAuthentication: ClientAuthentication = ClientSecretBasic("secret")
-        mAuthService!!.performTokenRequest(
-            request,
-            clientAuthentication,
-            callback
-        )
+        if (platform == LinkablePlatform.LIDL) {
+            val clientAuthentication: ClientAuthentication = ClientSecretBasic("secret")
+            mAuthServices[platform]!!.performTokenRequest(
+                request,
+                clientAuthentication,
+                callback
+            )
+        } else {
+            mAuthServices[platform]!!.performTokenRequest(
+                request,
+                callback
+            )
+        }
     }
 
     @WorkerThread
     private fun handleAccessTokenResponse(
+        platform: LinkablePlatform,
         tokenResponse: TokenResponse?,
         authException: AuthorizationException?
     ) {
         viewModelScope.launch {
-            mStateManager!!.updateAfterTokenResponse(tokenResponse, authException)
+            mStateManagers[platform]!!.updateAfterTokenResponse(tokenResponse, authException)
         }
 
     }
 
     @WorkerThread
     private fun handleCodeExchangeResponse(
+        platform: LinkablePlatform,
         tokenResponse: TokenResponse?,
         authException: AuthorizationException?
     ) {
         viewModelScope.launch {
-            mStateManager!!.updateAfterTokenResponse(tokenResponse, authException)
+            mStateManagers[platform]!!.updateAfterTokenResponse(tokenResponse, authException)
         }
-        if (!mStateManager!!.current.isAuthorized) {
+        if (!mStateManagers[platform]!!.current.isAuthorized) {
             val message = ("Authorization Code exchange failed"
                     + if (authException != null) authException.error else "")
 

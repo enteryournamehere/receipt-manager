@@ -14,15 +14,12 @@ import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -31,26 +28,18 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.ArrowOutward
-import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.CheckCircleOutline
 import androidx.compose.material.icons.rounded.ContentCopy
-import androidx.compose.material.icons.rounded.DoneAll
 import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.Handyman
 import androidx.compose.material.icons.rounded.ManageAccounts
-import androidx.compose.material.icons.rounded.PedalBike
 import androidx.compose.material.icons.rounded.RadioButtonUnchecked
 import androidx.compose.material.icons.rounded.ReceiptLong
 import androidx.compose.material.icons.rounded.Refresh
-import androidx.compose.material.icons.rounded.ShoppingBasket
-import androidx.compose.material.icons.rounded.ShoppingCart
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -75,7 +64,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -86,10 +74,9 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import zip.zaop.paylink.AccountsViewModel
 import zip.zaop.paylink.BonnetjesViewModel
 import zip.zaop.paylink.FullInfo
-import zip.zaop.paylink.R
+import zip.zaop.paylink.database.LinkablePlatform
 import zip.zaop.paylink.domain.Receipt
 import zip.zaop.paylink.domain.ReceiptItem
 import zip.zaop.paylink.ui.theme.PaylinkTheme
@@ -99,7 +86,7 @@ import zip.zaop.paylink.util.convertDateTimeString
 @Composable
 fun TopBar(
     status: String,
-    onClickHandler: () -> Unit
+    onClickHandler: (LinkablePlatform) -> Unit
 ) {
     Row(
         modifier = Modifier.padding(all = 10.dp),
@@ -108,13 +95,24 @@ fun TopBar(
         Text(status, modifier = Modifier.weight(1f))
         Button(
             onClick = {
-                onClickHandler()
+                onClickHandler(LinkablePlatform.LIDL)
             },
             contentPadding = ButtonDefaults.ButtonWithIconContentPadding
         ) {
             Icon(Icons.Rounded.Refresh, "get latest bonnetjes icon")
             Spacer(modifier = Modifier.size(ButtonDefaults.IconSpacing))
-            Text(text = stringResource(R.string.fetch_receipts))
+            Text(text = "lidl")
+        }
+        Spacer(modifier = Modifier.width(10.dp))
+        Button(
+            onClick = {
+                onClickHandler(LinkablePlatform.APPIE)
+            },
+            contentPadding = ButtonDefaults.ButtonWithIconContentPadding
+        ) {
+            Icon(Icons.Rounded.Refresh, "get latest bonnetjes icon")
+            Spacer(modifier = Modifier.size(ButtonDefaults.IconSpacing))
+            Text(text = "appie")
         }
     }
 }
@@ -209,12 +207,19 @@ private fun BonnetjesComposable(
     val receipts by bonnetjesViewModel.receiptsPlus.collectAsState(initial = listOf())
 
     Column {
-        TopBar(uiState.status) { bonnetjesViewModel.getBonnetjes() }
+        TopBar(uiState.status) {
+            bonnetjesViewModel.getBonnetjes(it)
+        }
         LazyColumn(modifier = Modifier.weight(1f)) {
             items(receipts) { receipt ->
                 BonnetjeCard(
                     receipt,
-                    onExpandClicked = { bonnetjesViewModel.fetchReceiptInfo(it) },
+                    onExpandClicked = {
+                        bonnetjesViewModel.fetchReceiptInfo(
+                            if (it.store == "lidl") LinkablePlatform.LIDL else LinkablePlatform.APPIE,
+                            it
+                        )
+                    },
                     onItemSelected = { receipty, index, selected ->
                         bonnetjesViewModel.select(receipty, index, selected)
                     },
@@ -337,7 +342,7 @@ private fun CardHeader(data: FullInfo, clickHandler: () -> Unit, expanded: Boole
                 .weight(1f)
                 .padding(12.dp)
         ) {
-            Text(text = remember { convertDateTimeString(data.receipt.date) })
+            Text(text = remember { convertDateTimeString(data.receipt.date) } + " (" + (if (data.receipt.store == "lidl") "Lidl" else "Albert Heijn") + ")")
             Text(
                 text = remember { convertCentsToString(data.receipt.totalAmount) },
                 style = MaterialTheme.typography.headlineMedium,

@@ -19,7 +19,6 @@ import android.util.Log
 import androidx.annotation.AnyThread
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.runBlocking
 import net.openid.appauth.AuthState
@@ -28,7 +27,7 @@ import net.openid.appauth.AuthorizationResponse
 import net.openid.appauth.RegistrationResponse
 import net.openid.appauth.TokenResponse
 import zip.zaop.paylink.database.LinkablePlatform
-import zip.zaop.paylink.repository.LidlRepository
+import zip.zaop.paylink.repository.ReceiptRepository
 import org.json.JSONException
 import java.util.concurrent.atomic.AtomicReference
 import java.util.concurrent.locks.ReentrantLock
@@ -38,11 +37,12 @@ import java.util.concurrent.locks.ReentrantLock
  * This stores the instance in a shared preferences file, and provides thread-safe access and
  * mutation.
  */
-class AuthStateManager private constructor(context: Context, lidlRepository: LidlRepository) {
+class AuthStateManager private constructor(context: Context, receiptRepository: ReceiptRepository, platform: LinkablePlatform) {
     private val mPrefs: SharedPreferences
     private val mPrefsLock: ReentrantLock
     private val mCurrentAuthState: AtomicReference<AuthState>
-    private val lidlRepository = lidlRepository
+    private val lidlRepository = receiptRepository
+    private val mPlatform = platform;
 
     init {
         mPrefs = context.getSharedPreferences(STORE_NAME, Context.MODE_PRIVATE)
@@ -112,7 +112,7 @@ class AuthStateManager private constructor(context: Context, lidlRepository: Lid
         return replace(current)
     }
 
-    val auths: Flow<Map<LinkablePlatform, String>> = lidlRepository.auth
+    val auths: Flow<Map<LinkablePlatform, String>> = receiptRepository.auth
 
     @AnyThread
     private suspend fun readState(): AuthState {
@@ -124,8 +124,8 @@ class AuthStateManager private constructor(context: Context, lidlRepository: Lid
         }
         Log.i("TAG", "readstate read")
 
-        if (authStates.containsKey(LinkablePlatform.LIDL)) {
-            val currentState = authStates[LinkablePlatform.LIDL]!!
+        if (authStates.containsKey(mPlatform)) {
+            val currentState = authStates[mPlatform]!!
             return try {
                 val mep = AuthState.jsonDeserialize(currentState)
                 Log.i(TAG, "Read auth state from database.")
@@ -147,19 +147,17 @@ class AuthStateManager private constructor(context: Context, lidlRepository: Lid
         val str = state.jsonSerializeString()
         Log.i("JAVA", str)
 
-        lidlRepository.updateAuthState(LinkablePlatform.LIDL, str)
+        lidlRepository.updateAuthState(mPlatform, str)
     }
 
     companion object {
         private const val TAG = "AuthStateManager"
         private const val STORE_NAME = "AuthState"
-        private const val KEY_STATE = "state"
-        @Volatile private var INSTANCE: AuthStateManager? = null
+        @Volatile private var INSTANCE_MAP: MutableMap<LinkablePlatform, AuthStateManager> = mutableMapOf();
 
-        fun getInstance(context: Context, repo: LidlRepository): AuthStateManager =
-            INSTANCE ?: synchronized(this) {
-                INSTANCE ?: AuthStateManager(context, repo).also { INSTANCE = it }
+        fun getInstance(context: Context, repo: ReceiptRepository, platform: LinkablePlatform): AuthStateManager =
+            INSTANCE_MAP[platform] ?: synchronized(this) {
+                INSTANCE_MAP[platform] ?: AuthStateManager(context, repo, platform).also { INSTANCE_MAP[platform] = it }
             }
-
     }
 }

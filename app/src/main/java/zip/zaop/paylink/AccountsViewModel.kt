@@ -14,18 +14,19 @@ import net.openid.appauth.AuthorizationService
 import net.openid.appauth.AuthorizationServiceConfiguration
 import net.openid.appauth.ResponseTypeValues
 import net.openid.appauth.connectivity.DefaultConnectionBuilder
+import zip.zaop.paylink.database.LinkablePlatform
 import zip.zaop.paylink.database.getDatabase
-import zip.zaop.paylink.repository.LidlRepository
+import zip.zaop.paylink.repository.ReceiptRepository
 import java.util.concurrent.ExecutorService
 
 
 class AccountsViewModel(application: Application) : AndroidViewModel(application) {
-    private var mAuthService: AuthorizationService? = null
-    private var mStateManager: AuthStateManager? = null
+    private var mAuthServices: MutableMap<LinkablePlatform, AuthorizationService> = mutableMapOf();
+    private var mStateManagers: MutableMap<LinkablePlatform, AuthStateManager> = mutableMapOf();
     private var mExecutor: ExecutorService? = null
     private val TAG = "accounts"
 
-    private val lidlRepository = LidlRepository(getDatabase(application))
+    private val receiptRepository = ReceiptRepository(getDatabase(application))
 
     // todo find out validity duration of wbw tokens
     // wbw room database i guess?
@@ -37,9 +38,17 @@ class AccountsViewModel(application: Application) : AndroidViewModel(application
     init {
         val context = application.applicationContext;
 
-        mStateManager = AuthStateManager.getInstance(context, lidlRepository)
+        mStateManagers[LinkablePlatform.LIDL] = AuthStateManager.getInstance(context, receiptRepository, LinkablePlatform.LIDL)
+        mStateManagers[LinkablePlatform.APPIE] = AuthStateManager.getInstance(context, receiptRepository, LinkablePlatform.APPIE)
 
-        mAuthService = AuthorizationService(
+        mAuthServices[LinkablePlatform.LIDL] = AuthorizationService(
+            context,
+            AppAuthConfiguration.Builder()
+                .setConnectionBuilder(DefaultConnectionBuilder.INSTANCE)
+                .build()
+        )
+
+        mAuthServices[LinkablePlatform.APPIE] = AuthorizationService(
             context,
             AppAuthConfiguration.Builder()
                 .setConnectionBuilder(DefaultConnectionBuilder.INSTANCE)
@@ -49,6 +58,7 @@ class AccountsViewModel(application: Application) : AndroidViewModel(application
 
     fun doLidlLogin() {
         doLogin(
+            LinkablePlatform.LIDL,
             "LidlPlusNativeClient",
             "com.lidlplus.app://callback",
             "openid profile offline_access lpprofile lpapis",
@@ -72,6 +82,7 @@ class AccountsViewModel(application: Application) : AndroidViewModel(application
     // x-fraud-detection-installation-id: 39caeb4d302bc6b1
     fun doAppieLogin() {
         doLogin(
+            LinkablePlatform.APPIE,
             "appie",
             "appie://login-exit",
             "",
@@ -83,6 +94,7 @@ class AccountsViewModel(application: Application) : AndroidViewModel(application
     }
 
     private fun doLogin(
+        platform: LinkablePlatform,
         clientId: String,
         callbackUri: String,
         scope: String,
@@ -92,14 +104,15 @@ class AccountsViewModel(application: Application) : AndroidViewModel(application
             serviceConfig,
             clientId,
             ResponseTypeValues.CODE,
-            Uri.parse(callbackUri)
+            Uri.parse(callbackUri),
+            clientId == "appie"
         ).setScope(scope).build()
 
         runBlocking(Dispatchers.IO) {
-            mStateManager!!.replace(AuthState(serviceConfig))
+            mStateManagers[platform]!!.replace(AuthState(serviceConfig))
         }
 
-        mAuthService!!.performAuthorizationRequest(
+        mAuthServices[platform]!!.performAuthorizationRequest(
             authRequest,
             PendingIntent.getActivity(
                 this.getApplication(),
