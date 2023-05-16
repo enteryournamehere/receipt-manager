@@ -63,7 +63,7 @@ class BonnetjesViewModel(application: Application) : AndroidViewModel(applicatio
     private var mAuthServices: MutableMap<LinkablePlatform, AuthorizationService> = mutableMapOf();
     private var mStateManagers: MutableMap<LinkablePlatform, AuthStateManager> = mutableMapOf();
 
-    private val receiptRepository = ReceiptRepository(getDatabase(application))
+    private val receiptRepository = ReceiptRepository(getDatabase(application), application)
 
     fun getBonnetjes(platform: LinkablePlatform) {
         _uiState.value = _uiState.value.copy(status = "downloading...")

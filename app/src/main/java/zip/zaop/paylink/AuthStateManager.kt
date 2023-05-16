@@ -38,15 +38,11 @@ import java.util.concurrent.locks.ReentrantLock
  * mutation.
  */
 class AuthStateManager private constructor(context: Context, receiptRepository: ReceiptRepository, platform: LinkablePlatform) {
-    private val mPrefs: SharedPreferences
-    private val mPrefsLock: ReentrantLock
     private val mCurrentAuthState: AtomicReference<AuthState>
     private val lidlRepository = receiptRepository
     private val mPlatform = platform;
 
     init {
-        mPrefs = context.getSharedPreferences(STORE_NAME, Context.MODE_PRIVATE)
-        mPrefsLock = ReentrantLock()
         mCurrentAuthState = AtomicReference()
     }
 
@@ -152,7 +148,6 @@ class AuthStateManager private constructor(context: Context, receiptRepository: 
 
     companion object {
         private const val TAG = "AuthStateManager"
-        private const val STORE_NAME = "AuthState"
         @Volatile private var INSTANCE_MAP: MutableMap<LinkablePlatform, AuthStateManager> = mutableMapOf();
 
         fun getInstance(context: Context, repo: ReceiptRepository, platform: LinkablePlatform): AuthStateManager =

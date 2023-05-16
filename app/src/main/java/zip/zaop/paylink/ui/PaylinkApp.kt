@@ -103,7 +103,7 @@ fun TopBar(
             Spacer(modifier = Modifier.size(ButtonDefaults.IconSpacing))
             Text(text = "lidl")
         }
-        Spacer(modifier = Modifier.width(10.dp))
+        Spacer(modifier = Modifier.width(6.dp))
         Button(
             onClick = {
                 onClickHandler(LinkablePlatform.APPIE)
@@ -112,15 +112,28 @@ fun TopBar(
         ) {
             Icon(Icons.Rounded.Refresh, "get latest bonnetjes icon")
             Spacer(modifier = Modifier.size(ButtonDefaults.IconSpacing))
-            Text(text = "appie")
+            Text(text = "ah")
+        }
+        Spacer(modifier = Modifier.width(6.dp))
+        Button(
+            onClick = {
+                onClickHandler(LinkablePlatform.JUMBO)
+            },
+            contentPadding = ButtonDefaults.ButtonWithIconContentPadding
+        ) {
+            Icon(Icons.Rounded.Refresh, "get latest bonnetjes icon")
+            Spacer(modifier = Modifier.size(ButtonDefaults.IconSpacing))
+            Text(text = "jumbo")
         }
     }
 }
+
 fun Context.findActivity(): Activity? = when (this) {
     is Activity -> this
     is ContextWrapper -> baseContext.findActivity()
     else -> null
 }
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MyApp(
@@ -140,7 +153,7 @@ fun MyApp(
         Screen.Receipts,
         Screen.Accounts,
     )
-    
+
     val intent = LocalContext.current.findActivity()!!.intent
 
     Scaffold(
@@ -215,10 +228,18 @@ private fun BonnetjesComposable(
                 BonnetjeCard(
                     receipt,
                     onExpandClicked = {
-                        bonnetjesViewModel.fetchReceiptInfo(
-                            if (it.store == "lidl") LinkablePlatform.LIDL else LinkablePlatform.APPIE,
-                            it
-                        )
+                        val platform = when (it.store) {
+                            "lidl" -> LinkablePlatform.LIDL
+                            "appie" -> LinkablePlatform.APPIE
+                            "jumbo" -> LinkablePlatform.JUMBO
+                            else -> null
+                        }
+                        if (platform != null) {
+                            bonnetjesViewModel.fetchReceiptInfo(
+                                platform,
+                                it
+                            )
+                        }
                     },
                     onItemSelected = { receipty, index, selected ->
                         bonnetjesViewModel.select(receipty, index, selected)
@@ -342,7 +363,13 @@ private fun CardHeader(data: FullInfo, clickHandler: () -> Unit, expanded: Boole
                 .weight(1f)
                 .padding(12.dp)
         ) {
-            Text(text = remember { convertDateTimeString(data.receipt.date) } + " (" + (if (data.receipt.store == "lidl") "Lidl" else "Albert Heijn") + ")")
+            Text(text = remember { convertDateTimeString(data.receipt.date) } + " (" + (
+                    when (data.receipt.store) {
+                        "lidl" -> "Lidl"
+                        "appie" -> "Albert Heijn"
+                        "jumbo" -> "Jumbo"
+                        else -> "???"
+                    }) + ")")
             Text(
                 text = remember { convertCentsToString(data.receipt.totalAmount) },
                 style = MaterialTheme.typography.headlineMedium,

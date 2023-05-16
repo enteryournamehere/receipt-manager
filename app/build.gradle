@@ -98,6 +98,6 @@ dependencies {
 
     def nav_version = "2.5.3"
     implementation "androidx.navigation:navigation-compose:$nav_version"
-
+    implementation "com.squareup.okhttp3:logging-interceptor:4.11.0"
 
 }

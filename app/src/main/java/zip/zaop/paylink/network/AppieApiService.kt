@@ -3,11 +3,10 @@ package zip.zaop.paylink.network
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.Json
-import okhttp3.MediaType
+import okhttp3.MediaType.Companion.toMediaType
 import retrofit2.Retrofit
 import retrofit2.http.GET
 import retrofit2.http.Header
-import retrofit2.http.Headers
 import retrofit2.http.Path
 
 private const val BASE_URL = "https://api.ah.nl/mobile-services/"
@@ -18,7 +17,7 @@ private val JsonCool = Json { ignoreUnknownKeys = true; explicitNulls = false }
 private val retrofit = Retrofit.Builder()
     .addConverterFactory(
         @OptIn(ExperimentalSerializationApi::class)
-        JsonCool.asConverterFactory(MediaType.get("application/json"))
+        JsonCool.asConverterFactory("application/json".toMediaType())
     )
     .baseUrl(BASE_URL)
     .build()

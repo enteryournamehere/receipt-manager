@@ -4,11 +4,14 @@ import android.app.Application
 import android.app.PendingIntent
 import android.content.Intent
 import android.net.Uri
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import net.openid.appauth.AppAuthConfiguration
 import net.openid.appauth.AuthState
@@ -19,6 +22,9 @@ import net.openid.appauth.ResponseTypeValues
 import net.openid.appauth.connectivity.DefaultConnectionBuilder
 import zip.zaop.paylink.database.LinkablePlatform
 import zip.zaop.paylink.database.getDatabase
+import zip.zaop.paylink.network.LoginRequest
+import zip.zaop.paylink.network.User
+import zip.zaop.paylink.network.WbwApi
 import zip.zaop.paylink.repository.ReceiptRepository
 import java.util.concurrent.ExecutorService
 
@@ -32,7 +38,7 @@ class AccountsViewModel(application: Application) : AndroidViewModel(application
     private var mExecutor: ExecutorService? = null
     private val TAG = "accounts"
 
-    private val receiptRepository = ReceiptRepository(getDatabase(application))
+    private val receiptRepository = ReceiptRepository(getDatabase(application), application)
 
     private val _uiState = MutableStateFlow(ConnectedAccounts())
     val uiState: StateFlow<ConnectedAccounts> = _uiState.asStateFlow()
@@ -99,6 +105,11 @@ class AccountsViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun doJumboLogin() {
+//        if (_uiState.value.connections[LinkablePlatform.JUMBO]!!) {
+//            viewModelScope.launch {
+//                receiptRepository.deleteAuthState(LinkablePlatform.JUMBO)
+//            }
+//        } else {
         doLogin(
             LinkablePlatform.JUMBO,
             "ZVa0cW0LadbDHINgrBLuEAp5amVBKQh1",
@@ -109,6 +120,7 @@ class AccountsViewModel(application: Application) : AndroidViewModel(application
                 Uri.parse("https://auth.jumbo.com/oauth/token")
             )
         )
+//        }
     }
 
     // https://login.ah.nl/secure/oauth/authorize?client_id=appie&redirect_uri=appie://login-exit&response_type=code
@@ -142,13 +154,27 @@ class AccountsViewModel(application: Application) : AndroidViewModel(application
         scope: String,
         serviceConfig: AuthorizationServiceConfiguration
     ) {
-        val authRequest: AuthorizationRequest = AuthorizationRequest.Builder(
+        var authRequestBuilder = AuthorizationRequest.Builder(
             serviceConfig,
             clientId,
             ResponseTypeValues.CODE,
             Uri.parse(callbackUri),
             clientId == "appie"
-        ).setScope(scope).build()
+        ).setScope(scope)
+
+        if (platform == LinkablePlatform.JUMBO) {
+            authRequestBuilder = authRequestBuilder.setAdditionalParameters(
+                mapOf(
+                    "audience" to "https://jumbo.com/loyalty",
+                    "ext-login_uri" to "https://loyalty-app.jumbo.com/user/account",
+                    "ext-password_reset_uri" to "https://loyalty-app.jumbo.com/user/forgot-password",
+                    "ext-register_uri" to "https://loyalty-app.jumbo.com/user/signup/email",
+                    "auth0Client" to "eyJuYW1lIjoiYXV0aDAtc3BhLWpzIiwidmVyc2lvbiI6IjIuMC4zIn0="
+                )
+            ).setPrompt("login").setResponseMode("query")
+        }
+
+        val authRequest = authRequestBuilder.build()
 
         runBlocking(Dispatchers.IO) {
             mStateManagers[platform]!!.replace(AuthState(serviceConfig))

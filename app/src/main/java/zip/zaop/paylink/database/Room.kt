@@ -33,6 +33,9 @@ interface ReceiptDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     fun setAuthState(state: DatabaseAuthState)
+
+    @Query("delete from auth_state where platform = :platform")
+    fun clearAuthState(platform: LinkablePlatform)
 }
 
 @Database(entities = [DatabaseReceipt::class, DatabaseReceiptItem::class, DatabaseAuthState::class], version = 3)

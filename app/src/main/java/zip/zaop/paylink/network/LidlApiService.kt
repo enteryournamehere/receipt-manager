@@ -2,7 +2,7 @@ package zip.zaop.paylink.network
 
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
 import kotlinx.serialization.json.Json
-import okhttp3.MediaType
+import okhttp3.MediaType.Companion.toMediaType
 import retrofit2.Retrofit
 import retrofit2.http.GET
 import retrofit2.http.Header
@@ -16,7 +16,7 @@ private val JsonCool = Json { ignoreUnknownKeys = true }
 private val retrofit = Retrofit.Builder()
     .addConverterFactory(
         @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
-        JsonCool.asConverterFactory(MediaType.get("application/json"))
+        JsonCool.asConverterFactory("application/json".toMediaType())
     )
     .baseUrl(BASE_URL)
     .build()
