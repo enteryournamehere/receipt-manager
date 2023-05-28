@@ -378,7 +378,7 @@ class BonnetjesViewModel(private val application: Application) : AndroidViewMode
                 }
 
             if (mStateManagers[platform]!!.current.isAuthorized) {
-                _uiState.value = _uiState.value.copy(status = "intent but authorized")
+                _uiState.value = _uiState.value.copy(status = "logged in")
                 return
             }
 
