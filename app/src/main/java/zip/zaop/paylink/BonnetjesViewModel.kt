@@ -1,8 +1,8 @@
 package zip.zaop.paylink
 
-//import androidx.core.content.Context.getSystemService
 import android.app.Application
 import android.content.Intent
+import android.icu.util.Calendar
 import android.util.Log
 import androidx.annotation.MainThread
 import androidx.annotation.WorkerThread
@@ -10,9 +10,11 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import net.openid.appauth.AppAuthConfiguration
 import net.openid.appauth.AuthorizationException
@@ -23,29 +25,33 @@ import net.openid.appauth.ClientSecretBasic
 import net.openid.appauth.TokenRequest
 import net.openid.appauth.TokenResponse
 import net.openid.appauth.connectivity.DefaultConnectionBuilder
+import zip.zaop.paylink.database.DatabaseWbwMember
 import zip.zaop.paylink.database.LinkablePlatform
 import zip.zaop.paylink.database.getDatabase
 import zip.zaop.paylink.domain.Receipt
 import zip.zaop.paylink.domain.ReceiptItem
-import zip.zaop.paylink.network.NetworkLidlReceiptItem
+import zip.zaop.paylink.network.Amount
+import zip.zaop.paylink.network.Expense
+import zip.zaop.paylink.network.NewExpenseWrapper
+import zip.zaop.paylink.network.ShareInfo
+import zip.zaop.paylink.network.ShareMeta
+import zip.zaop.paylink.network.WbwApi
 import zip.zaop.paylink.repository.ReceiptRepository
 import zip.zaop.paylink.util.convertCentsToString
+import java.text.SimpleDateFormat
+import java.util.UUID
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
 
 data class UiState(
-//    val bonnetjes: MutableList<BonnetjeUiState> = mutableStateListOf(),
-    val status: String = "init",
+    val status: String = "",
     val selectedCount: Int = 0,
     val selectedAmount: Int = 0,
-)
-
-data class BonnetjeUiState(
-    val id: String,
-    val date: String,
-    val amount: String,
-    val items: List<NetworkLidlReceiptItem>
+    val wbwPopupShown: Boolean = false,
+    val wbwMembersSelected: List<String> = emptyList(),
+    val wbwListSelected: String? = null,
+    val wbwNewExpenseText: String = "",
 )
 
 data class FullInfo(
@@ -53,17 +59,20 @@ data class FullInfo(
     val selectedItems: Set<Int>,
 )
 
-data class TestState(
-    val selectedItems: Map<Int, List<Int>>
-)
-
-class BonnetjesViewModel(application: Application) : AndroidViewModel(application) {
+class BonnetjesViewModel(private val application: Application) : AndroidViewModel(application) {
     private var mExecutor: ExecutorService? = null
     private val TAG = "binomiaalverdeling"
     private var mAuthServices: MutableMap<LinkablePlatform, AuthorizationService> = mutableMapOf();
     private var mStateManagers: MutableMap<LinkablePlatform, AuthStateManager> = mutableMapOf();
 
     private val receiptRepository = ReceiptRepository(getDatabase(application), application)
+
+    fun getAllBonnetjes() {
+        for ((platform, stateManager) in mStateManagers.entries) {
+            if (stateManager.current.isAuthorized)
+                getBonnetjes(platform)
+        }
+    }
 
     fun getBonnetjes(platform: LinkablePlatform) {
         _uiState.value = _uiState.value.copy(status = "downloading...")
@@ -87,8 +96,32 @@ class BonnetjesViewModel(application: Application) : AndroidViewModel(applicatio
     private val _uiState = MutableStateFlow(UiState())
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
 
-    val receipts: Flow<List<Receipt>> = receiptRepository.receipts
+    private val receipts: Flow<List<Receipt>> = receiptRepository.receipts
+    val lists = receiptRepository.wbwLists
 
+    private val wbwListSelectedFlow: MutableStateFlow<String?> = MutableStateFlow("")
+
+    private var wbwListSelected: String?
+        get() = wbwListSelectedFlow.value
+        set(value) {
+            wbwListSelectedFlow.value = value
+            _uiState.value = _uiState.value.copy(wbwListSelected = value)
+        }
+
+    val members: StateFlow<List<DatabaseWbwMember>> =
+        receiptRepository.wbwMembers
+            .combine(wbwListSelectedFlow) { list, filter ->
+                list.filter { it.list_id == filter }
+            }
+            .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    private val ourMemberId: StateFlow<String?> =
+        receiptRepository.wbwLists.combine(wbwListSelectedFlow) { list, filter ->
+            list.find { it.id == filter }?.our_member_id
+        }
+            .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    // Map<Receipt ID, Set<Item-in-receipt-index>>
     private val _selectionStateFlow = MutableStateFlow<Map<Int, Set<Int>>>(emptyMap())
     private val selectionStateFlow = _selectionStateFlow.asStateFlow()
 
@@ -104,7 +137,7 @@ class BonnetjesViewModel(application: Application) : AndroidViewModel(applicatio
         }
 
     // if the user selects an item, mark it as selected ,so that the ui updates
-    fun select(receipt: Receipt, item: ReceiptItem, state: Boolean) {
+    fun selectReceiptItem(receipt: Receipt, item: ReceiptItem, state: Boolean) {
         val updatedSet = (_selectionStateFlow.value[receipt.id] ?: emptySet()).toMutableSet()
         if (state) {
             val added = updatedSet.add(item.indexInsideReceipt)
@@ -128,6 +161,106 @@ class BonnetjesViewModel(application: Application) : AndroidViewModel(applicatio
         _selectionStateFlow.value = emptyMap()
         _uiState.value = _uiState.value.copy(selectedAmount = 0, selectedCount = 0)
         return valueToCopy
+    }
+
+    fun openWbwPopup() {
+        wbwListSelected = null
+        _uiState.value = _uiState.value.copy(
+            wbwPopupShown = true,
+            wbwMembersSelected = emptyList(),
+            wbwNewExpenseText = ""
+        )
+    }
+
+    fun wbwListSelected(id: String) {
+        wbwListSelected = id
+        _uiState.value = _uiState.value.copy(
+            wbwMembersSelected = emptyList(),
+        )
+        viewModelScope.launch {
+            try {
+                receiptRepository.refreshWbwMembers(id)
+            } catch (networkError: Exception) {
+                Log.e("Error", "NETWORK ERROR! $networkError")
+            }
+        }
+    }
+
+    fun wbwMemberToggled(memberId: String) {
+        if (_uiState.value.wbwMembersSelected.contains(memberId)) {
+            _uiState.value = _uiState.value.copy(
+                wbwMembersSelected = _uiState.value.wbwMembersSelected.minus(memberId)
+            )
+        } else {
+            _uiState.value = _uiState.value.copy(
+                wbwMembersSelected = _uiState.value.wbwMembersSelected.plus(memberId)
+            )
+        }
+    }
+
+    fun hideWbwPopup() {
+        _uiState.value = _uiState.value.copy(wbwPopupShown = false)
+    }
+
+    fun wbwSubmit() {
+        val cents = _uiState.value.selectedAmount;
+        val sharedBetween = _uiState.value.wbwMembersSelected.size;
+        val remainder = cents % sharedBetween;
+        val shareList = _uiState.value.wbwMembersSelected.map {
+            ShareInfo(
+                id = it,
+                member_id = it,
+                source_amount = Amount("EUR", cents / sharedBetween),
+                amount = Amount("EUR", cents / sharedBetween),
+                meta = ShareMeta(type = "factor", multiplier = 1)
+            )
+        }.toMutableList()
+
+        for (i in 1..remainder) {
+            val newAmount = Amount("EUR", shareList[i - 1].amount.fractional + 1)
+            val newShare = shareList[i - 1].copy(amount = newAmount, source_amount = newAmount);
+            shareList[i - 1] = newShare;
+        }
+
+        val time = Calendar.getInstance().time
+        val formatter = SimpleDateFormat("yyyy-MM-dd")
+        val date = formatter.format(time)
+        viewModelScope.launch {
+            try {
+                val response = WbwApi.getRetrofitService(application).addExpense(
+                    wbwListSelected!!, NewExpenseWrapper(
+                        expense = Expense(
+                            id = UUID.randomUUID().toString(),
+                            name = _uiState.value.wbwNewExpenseText,
+                            payed_by_id = ourMemberId.value!!,
+                            payed_on = date,
+                            source_amount = Amount(currency = "EUR", fractional = cents),
+                            amount = Amount(currency = "EUR", fractional = cents),
+                            exchange_rate = 1,
+                            shares_attributes = shareList,
+                        )
+                    )
+                )
+                if (response.message != null) { // TODO maybe this never works bc error status code means an exception is thrown
+                    _uiState.value = _uiState.value.copy(status = response.message)
+                } else {
+                    _uiState.value = _uiState.value.copy(
+                        wbwPopupShown = false,
+                        selectedCount = 0,
+                        selectedAmount = 0
+                    )
+                    _selectionStateFlow.value = emptyMap()
+                }
+            } catch (e: Exception) {
+                Log.e("WBWPUSH", e.toString())
+            }
+        }
+    }
+
+    fun updateWbwNewExpenseText(text: String) {
+        _uiState.value = _uiState.value.copy(
+            wbwNewExpenseText = text,
+        )
     }
 
     @MainThread
@@ -194,9 +327,12 @@ class BonnetjesViewModel(application: Application) : AndroidViewModel(applicatio
     init {
         val context = application.applicationContext;
 
-        mStateManagers[LinkablePlatform.LIDL] = AuthStateManager.getInstance(context, receiptRepository, LinkablePlatform.LIDL)
-        mStateManagers[LinkablePlatform.APPIE] = AuthStateManager.getInstance(context, receiptRepository, LinkablePlatform.APPIE)
-        mStateManagers[LinkablePlatform.JUMBO] = AuthStateManager.getInstance(context, receiptRepository, LinkablePlatform.JUMBO)
+        mStateManagers[LinkablePlatform.LIDL] =
+            AuthStateManager.getInstance(context, receiptRepository, LinkablePlatform.LIDL)
+        mStateManagers[LinkablePlatform.APPIE] =
+            AuthStateManager.getInstance(context, receiptRepository, LinkablePlatform.APPIE)
+        mStateManagers[LinkablePlatform.JUMBO] =
+            AuthStateManager.getInstance(context, receiptRepository, LinkablePlatform.JUMBO)
 
         mAuthServices[LinkablePlatform.LIDL] = AuthorizationService(
             context,

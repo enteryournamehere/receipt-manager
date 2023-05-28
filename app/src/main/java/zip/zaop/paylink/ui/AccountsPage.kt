@@ -16,6 +16,7 @@ import androidx.compose.material.icons.rounded.DoneAll
 import androidx.compose.material.icons.rounded.PedalBike
 import androidx.compose.material.icons.rounded.ShoppingBasket
 import androidx.compose.material.icons.rounded.ShoppingCart
+import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -38,25 +39,55 @@ import zip.zaop.paylink.database.LinkablePlatform
 fun AccountsComposable(
     accountsViewModel: AccountsViewModel = viewModel(),
 ) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-        modifier = Modifier
-            .width(IntrinsicSize.Min)
-    ) {
-        val connections by accountsViewModel.uiState.collectAsState()
-        Text("under construction")
-        Spacer(Modifier.height(20.dp))
-        ConnectAccountButton("Lidl", Icons.Rounded.ShoppingBasket, connections.connections[LinkablePlatform.LIDL]!!, {
-            accountsViewModel.doLidlLogin()
-        })
-        ConnectAccountButton("Albert Heijn", Icons.Rounded.ShoppingCart, connections.connections[LinkablePlatform.APPIE]!!, {
-            accountsViewModel.doAppieLogin()
-        })
-        ConnectAccountButton("Jumbo", Icons.Rounded.PedalBike, connections.connections[LinkablePlatform.JUMBO]!!, {
-            accountsViewModel.doJumboLogin()
-        })
-        ConnectAccountButton("WieBetaaltWat", Icons.Rounded.DoneAll, false, {})
+    val uiState by accountsViewModel.uiState.collectAsState()
+    if (uiState.wbwLoginState.visible) {
+        WbwLoginPage(
+            onKeyboardDone = { accountsViewModel.submitWbwLogin() },
+            onUsernameChanged = { accountsViewModel.updateWbwUsername(it) },
+            onPasswordChanged = { accountsViewModel.updateWbwPassword(it) },
+            username = uiState.wbwLoginState.username,
+            password = uiState.wbwLoginState.password
+        )
+    } else {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+            modifier = Modifier
+                .width(IntrinsicSize.Min)
+        ) {
+            Spacer(Modifier.height(20.dp))
+            ConnectAccountButton(
+                "Lidl",
+                Icons.Rounded.ShoppingBasket,
+                uiState.connections[LinkablePlatform.LIDL] ?: false,
+                {
+                    accountsViewModel.doLidlLogin()
+                })
+            ConnectAccountButton(
+                "Albert Heijn",
+                Icons.Rounded.ShoppingCart,
+                uiState.connections[LinkablePlatform.APPIE] ?: false,
+                {
+                    accountsViewModel.doAppieLogin()
+                })
+            ConnectAccountButton(
+                "Jumbo",
+                Icons.Rounded.PedalBike,
+                uiState.connections[LinkablePlatform.JUMBO] ?: false,
+                {
+                    accountsViewModel.doJumboLogin()
+                })
+            ConnectAccountButton(
+                "WieBetaaltWat",
+                Icons.Rounded.DoneAll,
+                uiState.connections[LinkablePlatform.WBW] ?: false,
+                {
+                    accountsViewModel.startWbwLogin()
+                })
+            Button(onClick = {accountsViewModel.getWbwListStuff()}) {
+                Text("refresh wbw lists")
+            }
+        }
     }
 }
 

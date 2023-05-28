@@ -36,7 +36,7 @@ object JumboApi {
 
     fun getRetrofitService(context: Context): JumboApiService =
         INSTANCE ?: synchronized(this) {
-            INSTANCE ?: newRetrofit(context, BASE_URL, "jumbo/1.2.3", JumboApiService::class.java)
+            INSTANCE ?: newRetrofit(context, BASE_URL, JumboApiService::class.java, mapOf("User-Agent" to "jumbo/1.2.3"))
                 .also { INSTANCE = it }
         }
 }

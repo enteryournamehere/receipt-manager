@@ -20,13 +20,18 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowOutward
 import androidx.compose.material.icons.rounded.CheckCircleOutline
@@ -38,10 +43,15 @@ import androidx.compose.material.icons.rounded.ManageAccounts
 import androidx.compose.material.icons.rounded.RadioButtonUnchecked
 import androidx.compose.material.icons.rounded.ReceiptLong
 import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.AlertDialogDefaults
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -50,6 +60,8 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -65,8 +77,12 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -76,6 +92,8 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import zip.zaop.paylink.BonnetjesViewModel
 import zip.zaop.paylink.FullInfo
+import zip.zaop.paylink.database.DatabaseWbwList
+import zip.zaop.paylink.database.DatabaseWbwMember
 import zip.zaop.paylink.database.LinkablePlatform
 import zip.zaop.paylink.domain.Receipt
 import zip.zaop.paylink.domain.ReceiptItem
@@ -83,10 +101,158 @@ import zip.zaop.paylink.ui.theme.PaylinkTheme
 import zip.zaop.paylink.util.convertCentsToString
 import zip.zaop.paylink.util.convertDateTimeString
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun WbwPopup(
+    lists: List<DatabaseWbwList>,
+    members: List<DatabaseWbwMember>,
+    selectedList: String?,
+    selectedMembers: List<String>,
+    onListSelected: (String) -> Unit,
+    onMemberToggled: (String) -> Unit,
+    onDescriptionUpdated: (String) -> Unit,
+    description: String,
+    onSubmit: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var listDropdownExpanded by remember { mutableStateOf(false) }
+    val selectionHandler: (String) -> Unit = {
+        onListSelected(it);
+        listDropdownExpanded = false;
+    }
+    val headerSize = 20.sp;
+    val belowHeaderPadding = 8.dp;
+    AlertDialog(
+        onDismissRequest = { onDismiss() },
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        Surface(
+            modifier = Modifier
+                .wrapContentWidth()
+                .wrapContentHeight(),
+            shape = MaterialTheme.shapes.large,
+            tonalElevation = AlertDialogDefaults.TonalElevation
+        ) {
+
+            Column(
+                modifier = Modifier
+                    .padding(16.dp)
+                    .wrapContentWidth()
+            ) {
+
+                Text("Expense description", fontSize = headerSize)
+                Spacer(modifier = Modifier.height(belowHeaderPadding))
+                TextField(
+                    value = description,
+                    onValueChange = { onDescriptionUpdated(it) },
+                    placeholder = { Text("Tap to add") },
+                    singleLine = true,
+                    keyboardActions = KeyboardActions(
+                        onDone = null
+                    ),
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Text,
+                        imeAction = ImeAction.Done
+                    )
+                ) // TODO: max length 255 (iirc)
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                Text("Select list", fontSize = headerSize)
+                Spacer(modifier = Modifier.height(belowHeaderPadding))
+                ExposedDropdownMenuBox(
+                    expanded = listDropdownExpanded,
+                    onExpandedChange = { listDropdownExpanded = it }
+                ) {
+                    TextField(
+                        value = if (selectedList != null) {
+                            lists.find { it.id == selectedList }?.name ?: "error!!!"
+                        } else {
+                            "Tap to select"
+                        },
+                        onValueChange = {},
+                        readOnly = true,
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = listDropdownExpanded) },
+                        modifier = Modifier.menuAnchor(),
+                        colors = ExposedDropdownMenuDefaults.textFieldColors(),
+                    )
+                    // Select a list
+                    ExposedDropdownMenu(
+                        expanded = listDropdownExpanded,
+                        onDismissRequest = { listDropdownExpanded = false },
+                    ) {
+                        lists.forEach {
+                            DropdownMenuItem(
+                                text = { Text(it.name) },
+                                onClick = { selectionHandler(it.id) })
+                        }
+                    }
+
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                if (selectedList != null) {
+                    Text("Select members", fontSize = headerSize)
+                    Spacer(modifier = Modifier.height(belowHeaderPadding))
+                    Column {
+                        members.forEach { member ->
+                            SelectableRow(
+                                SelectableRowInfo(contentStart = member.nickname),
+                                selected = selectedMembers.contains(member.id),
+                                showSelectionIcon = true,
+                                modifier = Modifier.width(270.dp) // TODO https://stackoverflow.com/questions/75236617/dynamic-item-width-in-column-jetpack-compose
+                            ) {
+                                onMemberToggled(member.id)
+                            }
+                        }
+                    }
+                }
+
+                TextButton(
+                    onClick = {
+                        onSubmit()
+                    },
+                    modifier = Modifier.align(Alignment.End),
+                    enabled = selectedMembers.isNotEmpty() && selectedList != null && description != "",
+                ) {
+                    Text("Create expense")
+                }
+
+            }
+        }
+    }
+//    }
+}
+
+@Composable
+@Preview
+fun DialogPreview() {
+    PaylinkTheme {
+        Surface {
+            WbwPopup(
+                lists = listOf(DatabaseWbwList("list2", "Cool List", "", null)),
+                members = listOf(
+                    DatabaseWbwMember("memb1", "Paul Knikkerbaas", "Paul", "", "list1"),
+                    DatabaseWbwMember("memb2", "Pjotr Pannekoek", "Pjotr", "", "list2"),
+                ),
+                selectedList = "list2",
+                selectedMembers = listOf("memb2"),
+                onListSelected = {},
+                onMemberToggled = {},
+                description = "",
+                onDescriptionUpdated = {},
+                onSubmit = {},
+                onDismiss = {},
+            )
+        }
+    }
+}
+
 @Composable
 fun TopBar(
     status: String,
-    onClickHandler: (LinkablePlatform) -> Unit
+    onClickHandler: () -> Unit
 ) {
     Row(
         modifier = Modifier.padding(all = 10.dp),
@@ -95,35 +261,13 @@ fun TopBar(
         Text(status, modifier = Modifier.weight(1f))
         Button(
             onClick = {
-                onClickHandler(LinkablePlatform.LIDL)
+                onClickHandler()
             },
             contentPadding = ButtonDefaults.ButtonWithIconContentPadding
         ) {
             Icon(Icons.Rounded.Refresh, "get latest bonnetjes icon")
             Spacer(modifier = Modifier.size(ButtonDefaults.IconSpacing))
-            Text(text = "lidl")
-        }
-        Spacer(modifier = Modifier.width(6.dp))
-        Button(
-            onClick = {
-                onClickHandler(LinkablePlatform.APPIE)
-            },
-            contentPadding = ButtonDefaults.ButtonWithIconContentPadding
-        ) {
-            Icon(Icons.Rounded.Refresh, "get latest bonnetjes icon")
-            Spacer(modifier = Modifier.size(ButtonDefaults.IconSpacing))
-            Text(text = "ah")
-        }
-        Spacer(modifier = Modifier.width(6.dp))
-        Button(
-            onClick = {
-                onClickHandler(LinkablePlatform.JUMBO)
-            },
-            contentPadding = ButtonDefaults.ButtonWithIconContentPadding
-        ) {
-            Icon(Icons.Rounded.Refresh, "get latest bonnetjes icon")
-            Spacer(modifier = Modifier.size(ButtonDefaults.IconSpacing))
-            Text(text = "jumbo")
+            Text(text = "fetch latest")
         }
     }
 }
@@ -134,7 +278,6 @@ fun Context.findActivity(): Activity? = when (this) {
     else -> null
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MyApp(
     applicationContext: Context,
@@ -218,10 +361,25 @@ private fun BonnetjesComposable(
     bonnetjesViewModel.start(intent)
     val uiState by bonnetjesViewModel.uiState.collectAsState()
     val receipts by bonnetjesViewModel.receiptsPlus.collectAsState(initial = listOf())
-
+    val wbwLists by bonnetjesViewModel.lists.collectAsState(initial = listOf())
+    val wbwMembers by bonnetjesViewModel.members.collectAsState(initial = listOf())
+    if (uiState.wbwPopupShown) {
+        WbwPopup(
+            lists = wbwLists,
+            members = wbwMembers,
+            selectedList = uiState.wbwListSelected,
+            selectedMembers = uiState.wbwMembersSelected,
+            onListSelected = { bonnetjesViewModel.wbwListSelected(it) },
+            onMemberToggled = { bonnetjesViewModel.wbwMemberToggled(it) }, // TODO
+            onDescriptionUpdated = { bonnetjesViewModel.updateWbwNewExpenseText(it) },
+            description = uiState.wbwNewExpenseText,
+            onSubmit = { bonnetjesViewModel.wbwSubmit() },
+            onDismiss = { bonnetjesViewModel.hideWbwPopup() }
+        )
+    }
     Column {
         TopBar(uiState.status) {
-            bonnetjesViewModel.getBonnetjes(it)
+            bonnetjesViewModel.getAllBonnetjes()
         }
         LazyColumn(modifier = Modifier.weight(1f)) {
             items(receipts) { receipt ->
@@ -242,7 +400,7 @@ private fun BonnetjesComposable(
                         }
                     },
                     onItemSelected = { receipty, index, selected ->
-                        bonnetjesViewModel.select(receipty, index, selected)
+                        bonnetjesViewModel.selectReceiptItem(receipty, index, selected)
                     },
                 )
             }
@@ -252,13 +410,16 @@ private fun BonnetjesComposable(
             BottomActionBar(
                 uiState.selectedCount,
                 uiState.selectedAmount,
-                showToast
-            ) {
-                clipboardManager.setText(AnnotatedString(bonnetjesViewModel.getSelectedAmountToCopy()))
+                showToast,
+                onCopyClicked = {
+                    clipboardManager.setText(AnnotatedString(bonnetjesViewModel.getSelectedAmountToCopy()))
 
-                if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.S_V2)
-                    showToast("Copied to clipboard")
-            }
+                    if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.S_V2)
+                        showToast("Copied to clipboard")
+                },
+                onWbwClicked = {
+                    bonnetjesViewModel.openWbwPopup()
+                })
     }
 }
 
@@ -274,6 +435,7 @@ private fun BottomActionBar(
     selectedAmount: Int,
     showToast: (String) -> Unit,
     onCopyClicked: () -> Unit,
+    onWbwClicked: () -> Unit,
 ) {
     Row(
         modifier = Modifier
@@ -304,7 +466,7 @@ private fun BottomActionBar(
         Spacer(modifier = Modifier.size(ButtonDefaults.IconSpacing))
         Button(
             onClick = {
-                showToast("Not yet implemented")
+                onWbwClicked();
             },
             colors = ButtonDefaults.buttonColors(),
             contentPadding = ButtonDefaults.ButtonWithIconContentPadding
@@ -418,8 +580,8 @@ private fun CardItemList(
                 val isSelected =
                     data.selectedItems.contains(item.indexInsideReceipt)
 
-                ItemCard(
-                    item,
+                SelectableRow(
+                    SelectableRowInfo(item.description, convertCentsToString(item.totalPrice)),
                     selected = isSelected,
                     showSelectionIcon = data.selectedItems.isNotEmpty()
                 ) {
@@ -430,12 +592,18 @@ private fun CardItemList(
     }
 }
 
+data class SelectableRowInfo(
+    val contentStart: String,
+    val contentEnd: String = "",
+)
+
 @Composable
-private fun ItemCard(
-    data: ReceiptItem,
+private fun SelectableRow(
+    data: SelectableRowInfo,
     selected: Boolean,
     showSelectionIcon: Boolean,
-    onSelectionChanged: (Boolean) -> Unit
+    modifier: Modifier = Modifier,
+    onSelectionChanged: (Boolean) -> Unit,
 ) {
     val selectedColor = MaterialTheme.colorScheme.secondaryContainer;
     val unselectedColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.0f)
@@ -444,7 +612,7 @@ private fun ItemCard(
     )
     val interactionSource = remember { MutableInteractionSource() }
     Row(
-        modifier = Modifier
+        modifier = modifier
             .padding(bottom = 7.dp)
             .clip(RoundedCornerShape(size = 20.dp))
             .background(backgroundColor)
@@ -470,10 +638,10 @@ private fun ItemCard(
         if (showSelectionIcon)
             Spacer(modifier = Modifier.size(ButtonDefaults.IconSpacing))
         Text(
-            data.description, modifier = Modifier.weight(1f),
+            data.contentStart, modifier = Modifier.weight(1f),
         )
         Text(
-            remember { convertCentsToString(data.totalPrice) }, modifier = Modifier,
+            data.contentEnd, modifier = Modifier,
         )
     }
 }
@@ -565,7 +733,7 @@ private fun CardPreview() {
 private fun BottomBarPreview() {
     PaylinkTheme {
         Surface {
-            BottomActionBar(4, 793, {}) {}
+            BottomActionBar(4, 793, {}, {}) {}
         }
     }
 }

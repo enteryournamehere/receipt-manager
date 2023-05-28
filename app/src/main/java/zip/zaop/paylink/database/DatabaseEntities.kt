@@ -45,6 +45,25 @@ data class DatabaseAuthState constructor(
     val state: String, // JSON :-)
 )
 
+@Entity(tableName="wbw_list")
+data class DatabaseWbwList constructor(
+    @PrimaryKey
+    val id: String,
+    val name: String,
+    val image_url: String?,
+    val our_member_id: String?,
+)
+
+@Entity(tableName="wbw_member")
+data class DatabaseWbwMember constructor(
+    @PrimaryKey
+    val id: String,
+    val full_name: String,
+    val nickname: String,
+    val avatar_url: String?,
+    val list_id: String, // foreign key
+)
+
 enum class LinkablePlatform {
     APPIE, LIDL, JUMBO, WBW
 }

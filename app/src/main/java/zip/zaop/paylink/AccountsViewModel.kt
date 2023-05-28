@@ -8,9 +8,14 @@ import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.mapLatest
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import net.openid.appauth.AppAuthConfiguration
@@ -25,14 +30,22 @@ import zip.zaop.paylink.database.getDatabase
 import zip.zaop.paylink.network.LoginRequest
 import zip.zaop.paylink.network.User
 import zip.zaop.paylink.network.WbwApi
+import zip.zaop.paylink.network.asDatabaseModel
 import zip.zaop.paylink.repository.ReceiptRepository
 import java.util.concurrent.ExecutorService
 
 data class ConnectedAccounts(
-    val connections: Map<LinkablePlatform, Boolean> = mapOf()
+    val connections: Map<LinkablePlatform, Boolean> = mapOf(),
+    val wbwLoginState: WbwLoginState,
 )
 
-class AccountsViewModel(application: Application) : AndroidViewModel(application) {
+data class WbwLoginState(
+    val visible: Boolean = false,
+    val username: String = "",
+    val password: String = "",
+)
+
+class AccountsViewModel(private val application: Application) : AndroidViewModel(application) {
     private var mAuthServices: MutableMap<LinkablePlatform, AuthorizationService> = mutableMapOf();
     private var mStateManagers: MutableMap<LinkablePlatform, AuthStateManager> = mutableMapOf();
     private var mExecutor: ExecutorService? = null
@@ -40,15 +53,14 @@ class AccountsViewModel(application: Application) : AndroidViewModel(application
 
     private val receiptRepository = ReceiptRepository(getDatabase(application), application)
 
-    private val _uiState = MutableStateFlow(ConnectedAccounts())
-    val uiState: StateFlow<ConnectedAccounts> = _uiState.asStateFlow()
+    val auths = receiptRepository.auth
+    val wbwAuthState: Flow<String?> = auths.mapLatest { it -> it.get(LinkablePlatform.WBW) }
 
-    // todo find out validity duration of wbw tokens
-    // wbw room database i guess?
-    // or use same technique as authstatemanager
-    // OR make those ALL use a room db with acc info . . . would be nice for adding jumby and appho
-    // cuz rn it does not support that
+    private val _uiState = MutableStateFlow(ConnectedAccounts(wbwLoginState = WbwLoginState()))
 
+    val uiState = _uiState.combine(wbwAuthState) { uistate, wbwstate ->
+        uistate.copy(connections = uistate.connections.plus(LinkablePlatform.WBW to (wbwstate != null)))
+    }.stateIn(viewModelScope, SharingStarted.Eagerly,ConnectedAccounts(wbwLoginState = WbwLoginState()) )
 
     init {
         val context = application.applicationContext;
@@ -62,11 +74,12 @@ class AccountsViewModel(application: Application) : AndroidViewModel(application
 
         _uiState.value =
             ConnectedAccounts(
-                mapOf(
+                connections = mapOf(
                     LinkablePlatform.LIDL to mStateManagers[LinkablePlatform.LIDL]!!.current.isAuthorized,
                     LinkablePlatform.APPIE to mStateManagers[LinkablePlatform.APPIE]!!.current.isAuthorized,
                     LinkablePlatform.JUMBO to mStateManagers[LinkablePlatform.JUMBO]!!.current.isAuthorized,
-                )
+                ),
+                wbwLoginState = WbwLoginState()
             )
 
         mAuthServices[LinkablePlatform.LIDL] = AuthorizationService(
@@ -89,6 +102,65 @@ class AccountsViewModel(application: Application) : AndroidViewModel(application
                 .setConnectionBuilder(DefaultConnectionBuilder.INSTANCE)
                 .build()
         )
+    }
+
+    fun startWbwLogin() {
+        _uiState.value =
+            _uiState.value.copy(wbwLoginState = _uiState.value.wbwLoginState.copy(visible = true))
+    }
+
+    fun getWbwListStuff() {
+        viewModelScope.launch {
+            val lists = WbwApi.getRetrofitService(application).getLists()
+
+            receiptRepository.insertWbwLists(lists.asDatabaseModel())
+
+            val balances = WbwApi.getRetrofitService(application).getBalances()
+
+            for (item in balances.data) {
+                val balance = item.balance
+                receiptRepository.setOurMemberId(balance.list.id, balance.member.id)
+            }
+        }
+    }
+
+    fun updateWbwUsername(text: String) {
+        _uiState.value =
+            _uiState.value.copy(wbwLoginState = _uiState.value.wbwLoginState.copy(username = text))
+    }
+
+    fun updateWbwPassword(text: String) {
+        _uiState.value =
+            _uiState.value.copy(wbwLoginState = _uiState.value.wbwLoginState.copy(password = text))
+    }
+
+    fun submitWbwLogin() {
+        viewModelScope.launch {
+            try {
+                val response = WbwApi.getRetrofitService(application).logIn(
+                    LoginRequest(
+                        User(
+                            _uiState.value.wbwLoginState.username,
+                            _uiState.value.wbwLoginState.password
+                        )
+                    )
+                )
+
+                if (response.errors == null) {
+                    // :)
+                    // go back
+                    _uiState.value = _uiState.value.copy(wbwLoginState = WbwLoginState())
+                    // save ??? (actually stored in cookie jar)
+                    receiptRepository.updateAuthState(LinkablePlatform.WBW, "yeah")
+
+                    getWbwListStuff()
+                } else {
+                    // :(
+                }
+            } catch (e: Exception) {
+                Log.e("hi", e.toString())
+            }
+        }
     }
 
     fun doLidlLogin() {
