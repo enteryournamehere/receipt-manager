@@ -261,7 +261,7 @@ class AccountsViewModel(private val application: Application) : AndroidViewModel
             PendingIntent.getActivity(
                 this.getApplication(),
                 0,
-                Intent(this.getApplication(), AuthCanceledActivity::class.java),
+                Intent(this.getApplication(), BonnetjesActivity::class.java),
                 PendingIntent.FLAG_MUTABLE
             )
         )

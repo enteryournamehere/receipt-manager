@@ -90,6 +90,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import net.openid.appauth.AuthorizationException
 import zip.zaop.paylink.BonnetjesViewModel
 import zip.zaop.paylink.FullInfo
 import zip.zaop.paylink.database.DatabaseWbwList
@@ -298,6 +299,13 @@ fun MyApp(
 
     val intent = LocalContext.current.findActivity()!!.intent
 
+    var startDestination = Screen.Receipts.route
+
+    val ex = AuthorizationException.fromIntent(intent)
+    if (ex?.code == AuthorizationException.TYPE_OAUTH_AUTHORIZATION_ERROR) {
+        startDestination = Screen.Accounts.route
+    }
+
     Scaffold(
         bottomBar = {
             NavigationBar {
@@ -337,7 +345,7 @@ fun MyApp(
         content = { padding ->
             NavHost(
                 navController,
-                startDestination = Screen.Receipts.route,
+                startDestination = startDestination,
                 Modifier.padding(padding)
             ) {
                 composable(Screen.Receipts.route) {
