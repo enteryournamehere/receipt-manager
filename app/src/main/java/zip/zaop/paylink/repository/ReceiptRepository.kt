@@ -1,7 +1,6 @@
 package zip.zaop.paylink.repository
 
 import android.content.Context
-import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -79,7 +78,7 @@ class ReceiptRepository(private val database: ReceiptsDatabase, val context: Con
                 }
 
                 "jumbo" -> {
-                    val details =
+                    @Suppress("UNUSED_VARIABLE") val details =
                         JumboApi.getRetrofitService(context)
                             .getReceipt(receipt.storeProvidedId, "Bearer $accessToken")
 //                    database.receiptDao.insertReceiptItems(details.receiptUiItems.asDatabaseModel(receipt.id))

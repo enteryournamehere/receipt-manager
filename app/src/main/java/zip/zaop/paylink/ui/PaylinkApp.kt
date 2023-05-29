@@ -118,11 +118,11 @@ fun WbwPopup(
 ) {
     var listDropdownExpanded by remember { mutableStateOf(false) }
     val selectionHandler: (String) -> Unit = {
-        onListSelected(it);
-        listDropdownExpanded = false;
+        onListSelected(it)
+        listDropdownExpanded = false
     }
-    val headerSize = 20.sp;
-    val belowHeaderPadding = 8.dp;
+    val headerSize = 20.sp
+    val belowHeaderPadding = 8.dp
     AlertDialog(
         onDismissRequest = { onDismiss() },
         properties = DialogProperties(usePlatformDefaultWidth = false),
@@ -473,7 +473,7 @@ private fun BottomActionBar(
         Spacer(modifier = Modifier.size(ButtonDefaults.IconSpacing))
         Button(
             onClick = {
-                onWbwClicked();
+                onWbwClicked()
             },
             colors = ButtonDefaults.buttonColors(),
             contentPadding = ButtonDefaults.ButtonWithIconContentPadding
@@ -525,8 +525,7 @@ private fun BonnetjeCard(
 
 @Composable
 private fun CardHeader(data: FullInfo, clickHandler: () -> Unit, expanded: Boolean) {
-    Row(
-    ) {
+    Row {
         Column(
             modifier = Modifier
                 .weight(1f)
@@ -612,7 +611,7 @@ private fun SelectableRow(
     modifier: Modifier = Modifier,
     onSelectionChanged: (Boolean) -> Unit,
 ) {
-    val selectedColor = MaterialTheme.colorScheme.secondaryContainer;
+    val selectedColor = MaterialTheme.colorScheme.secondaryContainer
     val unselectedColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.0f)
     val backgroundColor: Color by animateColorAsState(
         targetValue = if (selected) selectedColor else unselectedColor

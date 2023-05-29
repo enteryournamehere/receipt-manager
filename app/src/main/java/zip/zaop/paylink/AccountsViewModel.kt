@@ -7,6 +7,7 @@ import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -46,12 +47,13 @@ data class WbwLoginState(
 )
 
 class AccountsViewModel(private val application: Application) : AndroidViewModel(application) {
-    private var mAuthServices: MutableMap<LinkablePlatform, AuthorizationService> = mutableMapOf();
-    private var mStateManagers: MutableMap<LinkablePlatform, AuthStateManager> = mutableMapOf();
+    private var mAuthServices: MutableMap<LinkablePlatform, AuthorizationService> = mutableMapOf()
+    private var mStateManagers: MutableMap<LinkablePlatform, AuthStateManager> = mutableMapOf()
 
     private val receiptRepository = ReceiptRepository(getDatabase(application), application)
 
     private val auths = receiptRepository.auth
+    @OptIn(ExperimentalCoroutinesApi::class)
     private val wbwAuthState: Flow<String?> = auths.mapLatest { it[LinkablePlatform.WBW] }
 
     private val _uiState = MutableStateFlow(AccountsScreenUiState(wbwLoginState = WbwLoginState()))
@@ -69,7 +71,7 @@ class AccountsViewModel(private val application: Application) : AndroidViewModel
     }
 
     init {
-        val context = application.applicationContext;
+        val context = application.applicationContext
 
         mStateManagers[LinkablePlatform.LIDL] =
             AuthStateManager.getInstance(context, receiptRepository, LinkablePlatform.LIDL)
@@ -134,7 +136,7 @@ class AccountsViewModel(private val application: Application) : AndroidViewModel
     fun submitWbwLogin() {
         viewModelScope.launch {
             try {
-                val response = WbwApi.getRetrofitService(application).logIn(
+                @Suppress("UNUSED_VARIABLE") val response = WbwApi.getRetrofitService(application).logIn(
                     LoginRequest(
                         User(
                             _uiState.value.wbwLoginState.username,
@@ -158,6 +160,7 @@ class AccountsViewModel(private val application: Application) : AndroidViewModel
                     }
 
                     is ErrorResponse.Custom<*> -> {
+                        @Suppress("UNCHECKED_CAST")
                         _uiState.value = _uiState.value.copy(
                             alertInfo = AlertInfo(
                                 true,

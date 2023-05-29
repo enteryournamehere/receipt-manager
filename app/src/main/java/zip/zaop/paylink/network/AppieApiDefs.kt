@@ -90,10 +90,10 @@ fun List<AppieReceiptListItem>.asDatabaseModel(): List<DatabaseReceipt> {
 }
 
 fun floatEurosToCents(inString: String?): Int? {
-    if (inString == null) return null;
-    val str = inString.replace(",",".");
-    val float = str.toFloatOrNull() ?: return null;
-    val cents = float * 100;
+    if (inString == null) return null
+    val str = inString.replace(",",".")
+    val float = str.toFloatOrNull() ?: return null
+    val cents = float * 100
     return cents.roundToInt()
 }
 

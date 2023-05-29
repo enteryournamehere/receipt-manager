@@ -43,7 +43,6 @@ import java.util.UUID
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
-
 data class UiState(
     val status: String = "",
     val selectedCount: Int = 0,
@@ -65,11 +64,12 @@ data class FullInfo(
     val selectedItems: Set<Int>,
 )
 
+private const val TAG = "BonnetjesViewModel"
+
 class BonnetjesViewModel(private val application: Application) : AndroidViewModel(application) {
     private var mExecutor: ExecutorService? = null
-    private val TAG = "binomiaalverdeling"
-    private var mAuthServices: MutableMap<LinkablePlatform, AuthorizationService> = mutableMapOf();
-    private var mStateManagers: MutableMap<LinkablePlatform, AuthStateManager> = mutableMapOf();
+    private var mAuthServices: MutableMap<LinkablePlatform, AuthorizationService> = mutableMapOf()
+    private var mStateManagers: MutableMap<LinkablePlatform, AuthStateManager> = mutableMapOf()
 
     private val receiptRepository = ReceiptRepository(getDatabase(application), application)
 
@@ -92,13 +92,13 @@ class BonnetjesViewModel(private val application: Application) : AndroidViewMode
                 mAuthServices[platform]!!,
                 clientAuthentication,
             ) { accessToken: String?, _idToken: String?, ex: AuthorizationException? ->
-                this.getBonnetjes(platform, accessToken, _idToken, ex)
+                this.getBonnetjes(platform, accessToken, ex)
             }
         } else {
             mStateManagers[platform]!!.current.performActionWithFreshTokens(
                 mAuthServices[platform]!!
             ) { accessToken: String?, _idToken: String?, ex: AuthorizationException? ->
-                this.getBonnetjes(platform, accessToken, _idToken, ex)
+                this.getBonnetjes(platform, accessToken, ex)
             }
         }
     }
@@ -191,7 +191,7 @@ class BonnetjesViewModel(private val application: Application) : AndroidViewMode
             try {
                 receiptRepository.refreshWbwMembers(id)
             } catch (networkError: Exception) {
-                Log.e("Error", "NETWORK ERROR! $networkError")
+                Log.e(TAG, "NETWORK ERROR! $networkError")
             }
         }
     }
@@ -213,9 +213,9 @@ class BonnetjesViewModel(private val application: Application) : AndroidViewMode
     }
 
     fun wbwSubmit() {
-        val cents = _uiState.value.selectedAmount;
-        val sharedBetween = _uiState.value.wbwMembersSelected.size;
-        val remainder = cents % sharedBetween;
+        val cents = _uiState.value.selectedAmount
+        val sharedBetween = _uiState.value.wbwMembersSelected.size
+        val remainder = cents % sharedBetween
         val shareList = _uiState.value.wbwMembersSelected.map {
             ShareInfo(
                 id = it,
@@ -228,8 +228,8 @@ class BonnetjesViewModel(private val application: Application) : AndroidViewMode
 
         for (i in 1..remainder) {
             val newAmount = Amount("EUR", shareList[i - 1].amount.fractional + 1)
-            val newShare = shareList[i - 1].copy(amount = newAmount, source_amount = newAmount);
-            shareList[i - 1] = newShare;
+            val newShare = shareList[i - 1].copy(amount = newAmount, source_amount = newAmount)
+            shareList[i - 1] = newShare
         }
 
         val time = Calendar.getInstance().time
@@ -262,7 +262,7 @@ class BonnetjesViewModel(private val application: Application) : AndroidViewMode
                     _selectionStateFlow.value = emptyMap()
                 }
             } catch (e: Exception) {
-                Log.e("WBWPUSH", e.toString())
+                Log.e(TAG, e.toString())
             }
         }
     }
@@ -277,7 +277,6 @@ class BonnetjesViewModel(private val application: Application) : AndroidViewMode
     fun getBonnetjes(
         platform: LinkablePlatform,
         accessToken: String?,
-        _idToken: String?,
         ex: AuthorizationException?
     ) {
         if (ex != null) {
@@ -293,7 +292,7 @@ class BonnetjesViewModel(private val application: Application) : AndroidViewMode
                 receiptRepository.refreshReceipts(platform, accessToken!!)
                 _uiState.value = _uiState.value.copy(status = "done")
             } catch (networkError: Exception) {
-                Log.e("Error", "NETWORK ERROR! $networkError")
+                Log.e(TAG, "NETWORK ERROR! $networkError")
                 _uiState.value = _uiState.value.copy(status = "network error")
             }
         }
@@ -304,14 +303,13 @@ class BonnetjesViewModel(private val application: Application) : AndroidViewMode
         mStateManagers[platform]!!.current.performActionWithFreshTokens(
             mAuthServices[platform]!!, clientAuthentication
         ) { accessToken: String?, _idToken: String?, ex: AuthorizationException? ->
-            fetchReceiptInfo(accessToken, _idToken, ex, receipt)
+            fetchReceiptInfo(accessToken, ex, receipt)
         }
     }
 
     @MainThread
     fun fetchReceiptInfo(
         accessToken: String?,
-        _idToken: String?,
         ex: AuthorizationException?,
         receipt: Receipt
     ) {
@@ -328,14 +326,14 @@ class BonnetjesViewModel(private val application: Application) : AndroidViewMode
                 receiptRepository.fetchReceipt(accessToken!!, receipt)
                 _uiState.value = _uiState.value.copy(status = "done")
             } catch (networkError: Exception) {
-                Log.e("Error", "NETWORK ERROR! $networkError")
+                Log.e(TAG, "NETWORK ERROR! $networkError")
                 _uiState.value = _uiState.value.copy(status = "network error")
             }
         }
     }
 
     init {
-        val context = application.applicationContext;
+        val context = application.applicationContext
 
         mStateManagers[LinkablePlatform.LIDL] =
             AuthStateManager.getInstance(context, receiptRepository, LinkablePlatform.LIDL)
@@ -393,18 +391,14 @@ class BonnetjesViewModel(private val application: Application) : AndroidViewMode
             }
 
             Log.i(TAG, "response: " + response.toString() + " ; ex=" + ex.toString())
-            if (response != null || ex != null) {
-                Log.i(TAG, "Either is not null.")
-                viewModelScope.launch {
-                    mStateManagers[platform]!!.updateAfterAuthorization(response, ex)
-                }
+
+            viewModelScope.launch {
+                mStateManagers[platform]!!.updateAfterAuthorization(response, ex)
             }
-            if (response?.authorizationCode != null) {
+
+            if (response.authorizationCode != null) {
                 // authorization code exchange is required
                 Log.i(TAG, "Auth code exchange is required.")
-                viewModelScope.launch {
-                    mStateManagers[platform]!!.updateAfterAuthorization(response, ex)
-                }
                 exchangeAuthorizationCode(platform, response) // the good stuff :)
             } else if (ex != null) {
                 displayNotAuthorized("Authorization flow failed: " + ex.message)
@@ -476,7 +470,6 @@ class BonnetjesViewModel(private val application: Application) : AndroidViewMode
         viewModelScope.launch {
             mStateManagers[platform]!!.updateAfterTokenResponse(tokenResponse, authException)
         }
-
     }
 
     @WorkerThread

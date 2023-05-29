@@ -29,7 +29,7 @@ interface WbwApiService {
 
 object WbwApi {
     @Volatile
-    private var INSTANCE: WbwApiService? = null;
+    private var INSTANCE: WbwApiService? = null
 
     fun getRetrofitService(context: Context): WbwApiService =
         INSTANCE ?: synchronized(this) {

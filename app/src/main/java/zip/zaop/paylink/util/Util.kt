@@ -9,7 +9,7 @@ import java.time.format.DateTimeFormatter
 
 
 fun convertCentsToString(cents: Int, separator: String = ",", withEuro: Boolean = true): String {
-    val negative = cents < 0;
+    val negative = cents < 0
     val cents1 = kotlin.math.abs(cents)
     val euros = cents1 / 100
     val remainder = cents1 % 100
@@ -31,7 +31,7 @@ sealed class ErrorResponse{
 inline fun <reified T> parseHttpException(e: HttpException): ErrorResponse {
     @OptIn(ExperimentalSerializationApi::class)
     val jsonThingy = Json { ignoreUnknownKeys = true; explicitNulls = false }
-    val responseString = e.response()?.errorBody()?.string();
+    val responseString = e.response()?.errorBody()?.string()
     if (responseString != null) {
         return try {
             ErrorResponse.Custom<T>(jsonThingy.decodeFromString(responseString))

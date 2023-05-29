@@ -1,6 +1,5 @@
 package zip.zaop.paylink.database
 
-import android.util.Log
 import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
@@ -69,8 +68,6 @@ enum class LinkablePlatform {
 }
 
 fun Map<DatabaseReceipt, List<DatabaseReceiptItem>>.asDomainModel(): List<Receipt> {
-    Log.i("CONV", "Running asDomainModel, map size: ${this.size}")
-
     return this.entries.map { entry ->
         Receipt(
             id = entry.key.id,

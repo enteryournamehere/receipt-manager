@@ -32,7 +32,7 @@ interface JumboApiService {
 
 object JumboApi {
     @Volatile
-    private var INSTANCE: JumboApiService? = null;
+    private var INSTANCE: JumboApiService? = null
 
     fun getRetrofitService(context: Context): JumboApiService =
         INSTANCE ?: synchronized(this) {

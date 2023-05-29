@@ -21,7 +21,7 @@ fun newHttpClient(context: Context, extraHeaders: Map<String, String>): OkHttpCl
     logging.setLevel(HttpLoggingInterceptor.Level.NONE)
     var builder = OkHttpClient.Builder()
     builder = builder.addNetworkInterceptor { chain ->
-        val requestBuilder = chain.request().newBuilder();
+        val requestBuilder = chain.request().newBuilder()
         for ((key, value) in extraHeaders.entries) {
             requestBuilder.addHeader(key, value)
         }

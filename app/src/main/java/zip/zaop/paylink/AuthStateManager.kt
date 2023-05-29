@@ -14,7 +14,6 @@
 package zip.zaop.paylink
 
 import android.content.Context
-import android.content.SharedPreferences
 import android.util.Log
 import androidx.annotation.AnyThread
 import kotlinx.coroutines.Dispatchers
@@ -26,25 +25,23 @@ import net.openid.appauth.AuthorizationException
 import net.openid.appauth.AuthorizationResponse
 import net.openid.appauth.RegistrationResponse
 import net.openid.appauth.TokenResponse
+import org.json.JSONException
 import zip.zaop.paylink.database.LinkablePlatform
 import zip.zaop.paylink.repository.ReceiptRepository
-import org.json.JSONException
 import java.util.concurrent.atomic.AtomicReference
-import java.util.concurrent.locks.ReentrantLock
 
 /**
  * An example persistence mechanism for an [AuthState] instance.
  * This stores the instance in a shared preferences file, and provides thread-safe access and
  * mutation.
  */
-class AuthStateManager private constructor(context: Context, receiptRepository: ReceiptRepository, platform: LinkablePlatform) {
-    private val mCurrentAuthState: AtomicReference<AuthState>
+class AuthStateManager private constructor(
+    receiptRepository: ReceiptRepository,
+    platform: LinkablePlatform
+) {
+    private val mCurrentAuthState: AtomicReference<AuthState> = AtomicReference()
     private val lidlRepository = receiptRepository
-    private val mPlatform = platform;
-
-    init {
-        mCurrentAuthState = AtomicReference()
-    }
+    private val mPlatform = platform
 
     @get:AnyThread
     val current: AuthState
@@ -53,10 +50,10 @@ class AuthStateManager private constructor(context: Context, receiptRepository: 
                 Log.i(TAG, "Returning existing auth state.")
                 return mCurrentAuthState.get()
             }
-            Log.i("AUTH", "Going to read state from DB.")
+            Log.i(TAG, "Going to read state from DB.")
             val state = runBlocking(Dispatchers.IO) {
                 val state = readState()
-                Log.i("AUTH", "Done reading.")
+                Log.i(TAG, "Done reading.")
                 state
             }
             return if (mCurrentAuthState.compareAndSet(null, state)) {
@@ -108,17 +105,17 @@ class AuthStateManager private constructor(context: Context, receiptRepository: 
         return replace(current)
     }
 
-    val auths: Flow<Map<LinkablePlatform, String>> = receiptRepository.auth
+    private val auths: Flow<Map<LinkablePlatform, String>> = receiptRepository.auth
 
     @AnyThread
     private suspend fun readState(): AuthState {
-        Log.i("TAG", "readstate start")
+        Log.i(TAG, "readstate start")
         var authStates: Map<LinkablePlatform, String> = emptyMap()
 
         auths.take(1).collect { authMap ->
             authStates = authMap
         }
-        Log.i("TAG", "readstate read")
+        Log.i(TAG, "readstate read")
 
         if (authStates.containsKey(mPlatform)) {
             val currentState = authStates[mPlatform]!!
@@ -141,18 +138,18 @@ class AuthStateManager private constructor(context: Context, receiptRepository: 
     private suspend fun writeState(state: AuthState?) {
         if (state == null) return
         val str = state.jsonSerializeString()
-        Log.i("JAVA", str)
+        Log.i(TAG, str)
 
         lidlRepository.updateAuthState(mPlatform, str)
     }
 
     companion object {
         private const val TAG = "AuthStateManager"
-        @Volatile private var INSTANCE_MAP: MutableMap<LinkablePlatform, AuthStateManager> = mutableMapOf();
+        @Volatile private var INSTANCE_MAP: MutableMap<LinkablePlatform, AuthStateManager> = mutableMapOf()
 
         fun getInstance(context: Context, repo: ReceiptRepository, platform: LinkablePlatform): AuthStateManager =
             INSTANCE_MAP[platform] ?: synchronized(this) {
-                INSTANCE_MAP[platform] ?: AuthStateManager(context, repo, platform).also { INSTANCE_MAP[platform] = it }
+                INSTANCE_MAP[platform] ?: AuthStateManager(repo, platform).also { INSTANCE_MAP[platform] = it }
             }
     }
 }
