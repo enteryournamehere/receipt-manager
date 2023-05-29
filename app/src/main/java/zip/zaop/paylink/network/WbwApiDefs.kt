@@ -283,8 +283,12 @@ data class Payables(
 data class LoginResponse(
     val permissions: PermissionSet?, // not ENTIRELY clear bc this always has avatar perms set.idk
     val current_user: CurrentUser?,
-    val errors: Errors?,
-    val message: String?
+)
+
+@Serializable
+data class LoginErrorResponse(
+    val errors: Errors,
+    val message: String
 )
 
 @Serializable

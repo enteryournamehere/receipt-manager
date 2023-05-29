@@ -133,7 +133,6 @@ fun WbwPopup(
             shape = MaterialTheme.shapes.large,
             tonalElevation = AlertDialogDefaults.TonalElevation
         ) {
-
             Column(
                 modifier = Modifier
                     .padding(16.dp)
@@ -252,7 +251,7 @@ fun DialogPreview() {
 @Composable
 fun TopBar(
     status: String,
-    onClickHandler: () -> Unit
+    onClickHandler: () -> Unit,
 ) {
     Row(
         modifier = Modifier.padding(all = 10.dp),
@@ -564,7 +563,7 @@ private fun CardHeader(data: FullInfo, clickHandler: () -> Unit, expanded: Boole
 @Composable
 private fun CardItemList(
     data: FullInfo,
-    onItemSelected: (Receipt, ReceiptItem, Boolean) -> Unit
+    onItemSelected: (Receipt, ReceiptItem, Boolean) -> Unit,
 ) {
     if (data.receipt.items.isNullOrEmpty()) {
         Text(

@@ -102,9 +102,16 @@ class ReceiptRepository(private val database: ReceiptsDatabase, val context: Con
         }
     }
 
-    suspend fun insertWbwLists(lists: List<DatabaseWbwList>) {
+    suspend fun refreshWbwLists() {
         withContext(Dispatchers.IO) {
-            database.receiptDao.insertWbwLists(lists)
+            val lists = WbwApi.getRetrofitService(context).getLists()
+            database.receiptDao.insertWbwLists(lists.asDatabaseModel())
+
+            val balances = WbwApi.getRetrofitService(context).getBalances()
+            for (item in balances.data) {
+                val balance = item.balance
+                database.receiptDao.setOurMemberId(balance.list.id, balance.member.id)
+            }
         }
     }
 
@@ -112,12 +119,6 @@ class ReceiptRepository(private val database: ReceiptsDatabase, val context: Con
         withContext(Dispatchers.IO) {
             val details = WbwApi.getRetrofitService(context).getMembers(listId)
             database.receiptDao.insertWbwMembers(details.data.toDatabaseModel())
-        }
-    }
-
-    suspend fun setOurMemberId(listId: String, memberId: String) {
-        withContext(Dispatchers.IO) {
-            database.receiptDao.setOurMemberId(listId, memberId)
         }
     }
 }

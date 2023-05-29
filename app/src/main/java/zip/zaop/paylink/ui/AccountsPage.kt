@@ -34,12 +34,19 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import zip.zaop.paylink.AccountsViewModel
 import zip.zaop.paylink.database.LinkablePlatform
 
-
 @Composable
 fun AccountsComposable(
     accountsViewModel: AccountsViewModel = viewModel(),
 ) {
     val uiState by accountsViewModel.uiState.collectAsState()
+
+    if (uiState.alertInfo?.shown == true) {
+        Alert(
+            "Error",
+            uiState.alertInfo?.content ?: "no further information"
+        ) { accountsViewModel.closeAlertDialog() }
+    }
+
     if (uiState.wbwLoginState.visible) {
         WbwLoginPage(
             onKeyboardDone = { accountsViewModel.submitWbwLogin() },
@@ -84,7 +91,7 @@ fun AccountsComposable(
                 {
                     accountsViewModel.startWbwLogin()
                 })
-            Button(onClick = {accountsViewModel.getWbwListStuff()}) {
+            Button(onClick = { accountsViewModel.getWbwListStuff() }) {
                 Text("refresh wbw lists")
             }
         }
@@ -97,7 +104,7 @@ fun ConnectAccountButton(
     icon: ImageVector,
     isConnected: Boolean,
     onClickHandler: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     Card(
         colors = if (isConnected) CardDefaults.cardColors() else CardDefaults.outlinedCardColors(),

@@ -52,6 +52,12 @@ data class UiState(
     val wbwMembersSelected: List<String> = emptyList(),
     val wbwListSelected: String? = null,
     val wbwNewExpenseText: String = "",
+    val alertInfo: AlertInfo? = null,
+)
+
+data class AlertInfo(
+    val shown: Boolean,
+    val content: String,
 )
 
 data class FullInfo(
@@ -67,6 +73,10 @@ class BonnetjesViewModel(private val application: Application) : AndroidViewMode
 
     private val receiptRepository = ReceiptRepository(getDatabase(application), application)
 
+    fun closeAlertDialog() {
+        _uiState.value = _uiState.value.copy(alertInfo = null)
+    }
+
     fun getAllBonnetjes() {
         for ((platform, stateManager) in mStateManagers.entries) {
             if (stateManager.current.isAuthorized)
@@ -74,7 +84,7 @@ class BonnetjesViewModel(private val application: Application) : AndroidViewMode
         }
     }
 
-    fun getBonnetjes(platform: LinkablePlatform) {
+    private fun getBonnetjes(platform: LinkablePlatform) {
         _uiState.value = _uiState.value.copy(status = "downloading...")
         if (platform == LinkablePlatform.LIDL) {
             val clientAuthentication: ClientAuthentication = ClientSecretBasic("secret")
