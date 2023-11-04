@@ -49,6 +49,7 @@ fun AccountsComposable(
 
     if (uiState.wbwLoginState.visible) {
         WbwLoginPage(
+            onCancel = { accountsViewModel.hideWbwLoginScreen() },
             onKeyboardDone = { accountsViewModel.submitWbwLogin() },
             onUsernameChanged = { accountsViewModel.updateWbwUsername(it) },
             onPasswordChanged = { accountsViewModel.updateWbwPassword(it) },
@@ -91,8 +92,10 @@ fun AccountsComposable(
                 {
                     accountsViewModel.startWbwLogin()
                 })
-            Button(onClick = { accountsViewModel.getWbwListStuff() }) {
-                Text("refresh wbw lists")
+            if (uiState.connections[LinkablePlatform.WBW] == true) {
+                Button(onClick = { accountsViewModel.getWbwListStuff() }) {
+                    Text("refresh wbw lists")
+                }
             }
         }
     }

@@ -23,6 +23,7 @@ import net.openid.appauth.AuthorizationService
 import net.openid.appauth.AuthorizationServiceConfiguration
 import net.openid.appauth.ResponseTypeValues
 import net.openid.appauth.connectivity.DefaultConnectionBuilder
+import retrofit2.HttpException
 import zip.zaop.paylink.database.LinkablePlatform
 import zip.zaop.paylink.database.getDatabase
 import zip.zaop.paylink.network.LoginErrorResponse
@@ -32,7 +33,6 @@ import zip.zaop.paylink.network.WbwApi
 import zip.zaop.paylink.repository.ReceiptRepository
 import zip.zaop.paylink.util.ErrorResponse
 import zip.zaop.paylink.util.parseHttpException
-import retrofit2.HttpException
 
 data class AccountsScreenUiState(
     val connections: Map<LinkablePlatform, Boolean> = mapOf(),
@@ -133,15 +133,21 @@ class AccountsViewModel(private val application: Application) : AndroidViewModel
             _uiState.value.copy(wbwLoginState = _uiState.value.wbwLoginState.copy(password = text))
     }
 
+    fun hideWbwLoginScreen() {
+        _uiState.value =
+            _uiState.value.copy(wbwLoginState = _uiState.value.wbwLoginState.copy(visible = false))
+    }
+
     fun submitWbwLogin() {
         viewModelScope.launch {
             try {
-                @Suppress("UNUSED_VARIABLE") val response = WbwApi.getRetrofitService(application).logIn(
-                    LoginRequest(
-                        User(
-                            _uiState.value.wbwLoginState.username,
-                            _uiState.value.wbwLoginState.password
-                        )
+                @Suppress("UNUSED_VARIABLE") val response =
+                    WbwApi.getRetrofitService(application).logIn(
+                        LoginRequest(
+                            User(
+                                _uiState.value.wbwLoginState.username,
+                                _uiState.value.wbwLoginState.password
+                            )
                     )
                 )
 
@@ -169,6 +175,13 @@ class AccountsViewModel(private val application: Application) : AndroidViewModel
                         )
                     }
                 }
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    alertInfo = AlertInfo(
+                        true,
+                        e.message?.replace("zip.zaop.", "") ?: "Unknown error occured."
+                    )
+                )
             }
         }
     }

@@ -4,6 +4,7 @@ import android.content.Context
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.withContext
 import zip.zaop.paylink.database.DatabaseAuthState
 import zip.zaop.paylink.database.DatabaseWbwList
@@ -105,6 +106,15 @@ class ReceiptRepository(private val database: ReceiptsDatabase, val context: Con
         withContext(Dispatchers.IO) {
             val lists = WbwApi.getRetrofitService(context).getLists()
             database.receiptDao.insertWbwLists(lists.asDatabaseModel())
+
+            // Delete lists from cache that no longer exist
+            wbwLists.take(1).collect { storedLists ->
+                for (list in storedLists) {
+                    if (lists.data.find { it.list.id == list.id } == null) {
+                        database.receiptDao.deleteWbwList(list)
+                    }
+                }
+            }
 
             val balances = WbwApi.getRetrofitService(context).getBalances()
             for (item in balances.data) {

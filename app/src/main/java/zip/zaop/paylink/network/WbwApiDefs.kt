@@ -94,7 +94,7 @@ data class Image(
 @Serializable
 data class ShortMemberInfo(
     val id: String,
-    val user_id: String,
+    val user_id: String?,
     val nickname: String
 )
 
@@ -237,7 +237,7 @@ data class CurrentUser(
     val last_name: String,
     val state: String,
     val locale: String,
-    val city: String,
+    val city: String?,
     val unconfirmed_email: String?,
     val subscribed_for_updates: Boolean,
     val intent_url: String?,

@@ -2,11 +2,13 @@ package zip.zaop.paylink.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -23,6 +25,7 @@ import zip.zaop.paylink.ui.theme.PaylinkTheme
 
 @Composable
 fun WbwLoginPage(
+    onCancel: () -> Unit,
     onKeyboardDone: () -> Unit,
     onUsernameChanged: (String) -> Unit,
     onPasswordChanged: (String) -> Unit,
@@ -32,9 +35,9 @@ fun WbwLoginPage(
 ) {
     Column(
         verticalArrangement = Arrangement.spacedBy(18.dp),
-        horizontalAlignment = Alignment.End,
+//        horizontalAlignment = Alignment.End,
         modifier = Modifier.padding(20.dp)
-        ) {
+    ) {
         Text(
             text = "Log in to WBW",
             fontSize = 24.sp,
@@ -66,11 +69,19 @@ fun WbwLoginPage(
                 imeAction = ImeAction.Done
             )
         )
-        Button(
-            onClick = onKeyboardDone,
-            modifier = Modifier
-        ) {
-            Text("Log in", Modifier.padding(7.dp))
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            OutlinedButton(
+                onClick = onCancel,
+                modifier = Modifier
+            ) {
+                Text("Cancel", Modifier.padding(7.dp))
+            }
+            Button(
+                onClick = onKeyboardDone,
+                modifier = Modifier
+            ) {
+                Text("Log in", Modifier.padding(7.dp))
+            }
         }
     }
 }
@@ -81,6 +92,7 @@ fun Preview() {
     PaylinkTheme {
         Surface {
             WbwLoginPage(
+                onCancel = {},
                 onKeyboardDone = {},
                 onUsernameChanged = {},
                 onPasswordChanged = {},

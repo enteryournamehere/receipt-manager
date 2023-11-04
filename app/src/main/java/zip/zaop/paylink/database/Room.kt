@@ -3,6 +3,7 @@ package zip.zaop.paylink.database
 import android.content.Context
 import androidx.room.Dao
 import androidx.room.Database
+import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.MapInfo
 import androidx.room.OnConflictStrategy
@@ -47,6 +48,9 @@ interface ReceiptDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     fun insertWbwLists(lists: List<DatabaseWbwList>)
+
+    @Delete
+    fun deleteWbwList(list: DatabaseWbwList)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     fun insertWbwMembers(lists: List<DatabaseWbwMember>)
