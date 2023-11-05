@@ -130,4 +130,14 @@ class ReceiptRepository(private val database: ReceiptsDatabase, val context: Con
             database.receiptDao.insertWbwMembers(details.data.toDatabaseModel())
         }
     }
+
+    suspend fun setWbwFlags(items: Map<Int, Set<Int>>) {
+        withContext(Dispatchers.IO) {
+            for ((receiptId, receiptItems) in items.entries) {
+                for (receiptItem in receiptItems) {
+                    database.receiptDao.setWbwFlag(receiptId, receiptItem)
+                }
+            }
+        }
+    }
 }

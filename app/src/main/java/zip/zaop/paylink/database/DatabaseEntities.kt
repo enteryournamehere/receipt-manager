@@ -35,6 +35,8 @@ data class DatabaseReceiptItem constructor(
     val description: String,
     @ColumnInfo(name = "total_price")
     val totalPrice: Int,
+    @ColumnInfo(name = "has_been_sent_to_wbw")
+    val hasBeenSentToWbw: Boolean,
 )
 
 @Entity(tableName="auth_state")
@@ -82,7 +84,8 @@ fun Map<DatabaseReceipt, List<DatabaseReceiptItem>>.asDomainModel(): List<Receip
                 quantity = it.quantity,
                 storeProvidedItemCode = it.storeProvidedItemCode,
                 description = it.description,
-                totalPrice = it.totalPrice
+                totalPrice = it.totalPrice,
+                hasBeenSentToWbw = it.hasBeenSentToWbw,
             ) }
         )
     }

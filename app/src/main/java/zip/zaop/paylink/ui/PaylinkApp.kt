@@ -36,6 +36,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowOutward
 import androidx.compose.material.icons.rounded.CheckCircleOutline
 import androidx.compose.material.icons.rounded.ContentCopy
+import androidx.compose.material.icons.rounded.DoneAll
 import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.Handyman
@@ -389,7 +390,7 @@ private fun BonnetjesComposable(
             bonnetjesViewModel.getAllBonnetjes()
         }
         LazyColumn(modifier = Modifier.weight(1f)) {
-            items(receipts) { receipt ->
+            items(receipts, key = { it.receipt.id }) { receipt ->
                 BonnetjeCard(
                     receipt,
                     onExpandClicked = {
@@ -587,7 +588,11 @@ private fun CardItemList(
                     data.selectedItems.contains(item.indexInsideReceipt)
 
                 SelectableRow(
-                    SelectableRowInfo(item.description, convertCentsToString(item.totalPrice)),
+                    SelectableRowInfo(
+                        item.description,
+                        convertCentsToString(item.totalPrice),
+                        item.hasBeenSentToWbw
+                    ),
                     selected = isSelected,
                     showSelectionIcon = data.selectedItems.isNotEmpty()
                 ) {
@@ -601,6 +606,7 @@ private fun CardItemList(
 data class SelectableRowInfo(
     val contentStart: String,
     val contentEnd: String = "",
+    val showWbwIcon: Boolean = false,
 )
 
 @Composable
@@ -646,6 +652,10 @@ private fun SelectableRow(
         Text(
             data.contentStart, modifier = Modifier.weight(1f),
         )
+        if (data.showWbwIcon) {
+            Icon(Icons.Rounded.DoneAll, "double checkmark")
+            Spacer(modifier = Modifier.size(ButtonDefaults.IconSpacing))
+        }
         Text(
             data.contentEnd, modifier = Modifier,
         )
@@ -704,7 +714,8 @@ private fun CardPreview() {
                     storeProvidedItemCode = null,
                     totalPrice = 500,
                     indexInsideReceipt = 0,
-                    id = 2432234
+                    id = 2432234,
+                    hasBeenSentToWbw = false,
                 ), ReceiptItem(
                     unitPrice = 195,
                     quantity = 3.1f,
@@ -712,7 +723,8 @@ private fun CardPreview() {
                     storeProvidedItemCode = null,
                     totalPrice = 3894,
                     indexInsideReceipt = 1,
-                    id = 66425
+                    id = 66425,
+                    hasBeenSentToWbw = true,
                 )
             ),
             date = "2023-04-28T17:55:04+00:00",

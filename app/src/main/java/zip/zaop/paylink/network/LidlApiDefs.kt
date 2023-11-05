@@ -36,7 +36,8 @@ fun List<NetworkLidlReceiptItem>.asDatabaseModel(receiptId: Int): List<DatabaseR
             storeProvidedItemCode = it.codeInput,
             description = it.description,
             totalPrice = (100 * parseFloat(it.extendedAmount.replace(",", "."))).roundToInt(),
-            indexInsideReceipt = int
+            indexInsideReceipt = int,
+            hasBeenSentToWbw = false,
         )
     }
 }

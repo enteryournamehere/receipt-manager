@@ -27,6 +27,9 @@ interface ReceiptDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     fun insertReceiptItems(receipts: List<DatabaseReceiptItem>)
 
+    @Query("update receipt_item set has_been_sent_to_wbw = 1 where receipt_id = :receipt_id and index_inside_receipt = :item_index")
+    fun setWbwFlag(receipt_id: Int, item_index: Int)
+
     @Query("select * from auth_state where platform = :platform")
     fun getAuthState(platform: LinkablePlatform): DatabaseAuthState
 
@@ -66,7 +69,7 @@ interface ReceiptDao {
         DatabaseAuthState::class,
         DatabaseWbwMember::class,
         DatabaseWbwList::class],
-    version = 6
+    version = 7
 )
 abstract class ReceiptsDatabase : RoomDatabase() {
     abstract val receiptDao: ReceiptDao

@@ -2,7 +2,6 @@ package zip.zaop.paylink
 
 import android.app.Application
 import android.content.Intent
-import android.icu.util.Calendar
 import android.util.Log
 import androidx.annotation.MainThread
 import androidx.annotation.WorkerThread
@@ -38,7 +37,6 @@ import zip.zaop.paylink.network.ShareMeta
 import zip.zaop.paylink.network.WbwApi
 import zip.zaop.paylink.repository.ReceiptRepository
 import zip.zaop.paylink.util.convertCentsToString
-import java.text.SimpleDateFormat
 import java.util.UUID
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
@@ -47,6 +45,7 @@ data class UiState(
     val status: String = "",
     val selectedCount: Int = 0,
     val selectedAmount: Int = 0,
+    val latestSelectedDate: String = "",
     val wbwPopupShown: Boolean = false,
     val wbwMembersSelected: List<String> = emptyList(),
     val wbwListSelected: String? = null,
@@ -164,6 +163,7 @@ class BonnetjesViewModel(private val application: Application) : AndroidViewMode
             )
         }
         _selectionStateFlow.value = _selectionStateFlow.value + (receipt.id to updatedSet)
+        _uiState.value = _uiState.value.copy(latestSelectedDate = receipt.date.split("T")[0])
     }
 
     fun getSelectedAmountToCopy(): String {
@@ -232,9 +232,7 @@ class BonnetjesViewModel(private val application: Application) : AndroidViewMode
             shareList[i - 1] = newShare
         }
 
-        val time = Calendar.getInstance().time
-        val formatter = SimpleDateFormat("yyyy-MM-dd")
-        val date = formatter.format(time)
+        val date = _uiState.value.latestSelectedDate
         viewModelScope.launch {
             try {
                 val response = WbwApi.getRetrofitService(application).addExpense(
@@ -251,16 +249,17 @@ class BonnetjesViewModel(private val application: Application) : AndroidViewMode
                         )
                     )
                 )
-                if (response.message != null) { // TODO maybe this never works bc error status code means an exception is thrown
-                    _uiState.value = _uiState.value.copy(status = response.message)
-                } else {
-                    _uiState.value = _uiState.value.copy(
-                        wbwPopupShown = false,
-                        selectedCount = 0,
-                        selectedAmount = 0
-                    )
-                    _selectionStateFlow.value = emptyMap()
-                }
+
+                receiptRepository.setWbwFlags(_selectionStateFlow.value)
+
+                _uiState.value = _uiState.value.copy(
+                    wbwPopupShown = false,
+                    selectedCount = 0,
+                    selectedAmount = 0
+                )
+                _selectionStateFlow.value = emptyMap()
+
+                // TODO actually handle errors (see accounts viewmodel: wbw login for example)
             } catch (e: Exception) {
                 Log.e(TAG, e.toString())
             }

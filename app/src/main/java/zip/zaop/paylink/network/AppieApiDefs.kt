@@ -109,12 +109,14 @@ fun List<AppieReceiptItem>.asDatabaseModel(receiptId: Int): List<DatabaseReceipt
         DatabaseReceiptItem(
             item_id = 0,
             receiptId = receiptId,
-            unitPrice = floatEurosToCents(it.price) ?: floatEurosToCents(it.amount)!!, // TODO check whats the situation for multiple of same product
-            quantity = toFloat(it.quantity!!.replace("KG","")), // TODO handle KGs!!
+            unitPrice = floatEurosToCents(it.price)
+                ?: floatEurosToCents(it.amount)!!, // TODO check whats the situation for multiple of same product
+            quantity = toFloat(it.quantity!!.replace("KG", "")), // TODO handle KGs!!
             storeProvidedItemCode = null,
             description = it.description!!,
             totalPrice = floatEurosToCents(it.amount)!!,
-            indexInsideReceipt = int
+            indexInsideReceipt = int,
+            hasBeenSentToWbw = false,
         )
     }
 }
