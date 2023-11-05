@@ -8,8 +8,9 @@ import retrofit2.http.GET
 import retrofit2.http.Header
 import retrofit2.http.Headers
 import retrofit2.http.Path
+import retrofit2.http.Query
 
-private const val BASE_URL = "https://tickets.lidlplus.com/api/v1/NL/"
+private const val BASE_URL = "https://tickets.lidlplus.com/api/v2/NL/"
 
 private val JsonCool = Json { ignoreUnknownKeys = true }
 
@@ -23,21 +24,23 @@ private val retrofit = Retrofit.Builder()
 
 interface LidlApiService {
     @Headers(
-        "App-Version: 999.99.9",
-        "Operating-System: iOS",
-        "App: com.lidl.eci.lidl.plus",
+        "App-Version: 999.99.9", //15.19.1
+        "Operating-System: iOS", //Android
+        "App: com.lidl.eci.lidlplus",
         "Accept-Language: NL"
     )
-    @GET("list/{page}")
+    @GET("tickets")
     suspend fun getReceipts(
-        @Path("page") page: Int,
-        @Header("Authorization") auth: String
+        @Query("pageNumber") page: Int,
+        @Header("Authorization") auth: String,
+        @Query("onlyFavorite") onlyFavorite: Boolean = false,
+        // @Query("itemId") = ???
     ): NetworkLidlReceiptList
 
     @Headers(
         "App-Version: 999.99.9",
         "Operating-System: iOS",
-        "App: com.lidl.eci.lidl.plus",
+        "App: com.lidl.eci.lidlplus",
         "Accept-Language: NL"
     )
     @GET("tickets/{id}")
