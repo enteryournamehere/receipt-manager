@@ -10,7 +10,7 @@ android {
     compileSdk 33
 
     defaultConfig {
-        applicationId "zip.zaop.paylink"
+        applicationId "zip.zaop.receiptmanager"
         minSdk 26
         targetSdk 33
         versionCode 1
