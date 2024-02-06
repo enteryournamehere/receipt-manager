@@ -1,5 +1,7 @@
 package zip.zaop.paylink.ui
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
@@ -96,6 +98,17 @@ fun AccountsComposable(
                 Button(onClick = { accountsViewModel.getWbwListStuff() }) {
                     Text("refresh wbw lists")
                 }
+            }
+
+            val launcher =
+                rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/vnd.sqlite3")) { uri ->
+                    if (uri != null) {
+                        accountsViewModel.exportDatabase(uri)
+                    }
+                }
+
+            Button(onClick = { launcher.launch("test.db") }) {
+                Text(text = "Export database")
             }
         }
     }

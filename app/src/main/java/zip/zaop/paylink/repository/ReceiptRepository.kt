@@ -1,6 +1,8 @@
 package zip.zaop.paylink.repository
 
 import android.content.Context
+import android.net.Uri
+import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -12,6 +14,7 @@ import zip.zaop.paylink.database.DatabaseWbwMember
 import zip.zaop.paylink.database.LinkablePlatform
 import zip.zaop.paylink.database.ReceiptsDatabase
 import zip.zaop.paylink.database.asDomainModel
+import zip.zaop.paylink.database.getDatabase
 import zip.zaop.paylink.domain.Receipt
 import zip.zaop.paylink.network.AppieApi
 import zip.zaop.paylink.network.JumboApi
@@ -19,6 +22,7 @@ import zip.zaop.paylink.network.LidlApi
 import zip.zaop.paylink.network.WbwApi
 import zip.zaop.paylink.network.asDatabaseModel
 import zip.zaop.paylink.network.toDatabaseModel
+import java.io.IOException
 
 class ReceiptRepository(private val database: ReceiptsDatabase, val context: Context) {
     val receipts: Flow<List<Receipt>> =
@@ -28,6 +32,35 @@ class ReceiptRepository(private val database: ReceiptsDatabase, val context: Con
 
     val wbwLists: Flow<List<DatabaseWbwList>> = database.receiptDao.getWbwLists()
     val wbwMembers: Flow<List<DatabaseWbwMember>> = database.receiptDao.getWbwMembers()
+
+    fun exportDatabase(path: Uri): Boolean {
+        getDatabase(context).openHelper.writableDatabase
+            .query("PRAGMA wal_checkpoint(FULL);").use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val log = cursor.getString(0)
+                    Log.d("DB export", "WAL checkpoint result: $log")
+                }
+            }
+        Log.d("DB export", "Checkpoint done")
+
+        val dbFile = context.getDatabasePath("receipts")
+        try {
+            context.contentResolver.openOutputStream(path, "w")
+                .use { output ->
+                    dbFile.inputStream().use { input ->
+                        input.copyTo(output!!)
+                    }
+                }
+
+            Log.d("DB export", "Copied file")
+
+            return true
+        } catch (e: IOException) {
+            Log.e("DB export", "Failed to copy file.")
+            e.printStackTrace()
+            return false
+        }
+    }
 
     suspend fun refreshReceipts(platform: LinkablePlatform, accessToken: String) {
         withContext(Dispatchers.IO) {

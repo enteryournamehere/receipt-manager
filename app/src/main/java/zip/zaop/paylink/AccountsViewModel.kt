@@ -282,4 +282,10 @@ class AccountsViewModel(private val application: Application) : AndroidViewModel
             )
         )
     }
+
+    fun exportDatabase(path: Uri) {
+        viewModelScope.launch {
+            receiptRepository.exportDatabase(path);
+        }
+    }
 }
