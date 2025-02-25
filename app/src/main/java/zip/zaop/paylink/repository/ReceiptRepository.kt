@@ -66,7 +66,7 @@ class ReceiptRepository(private val database: ReceiptsDatabase, val context: Con
         withContext(Dispatchers.IO) {
             when (platform) {
                 LinkablePlatform.LIDL -> {
-                    val receipts = LidlApi.retrofitService.getReceipts(1, "Bearer $accessToken")
+                    val receipts = LidlApi.getRetrofitService(context).getReceipts(1, "Bearer $accessToken")
                     database.receiptDao.insertReceipts(receipts.asDatabaseModel())
                 }
 
@@ -91,7 +91,7 @@ class ReceiptRepository(private val database: ReceiptsDatabase, val context: Con
             when (receipt.store) {
                 "lidl" -> {
                     val details =
-                        LidlApi.retrofitService.getReceipt(
+                        LidlApi.getRetrofitService(context).getReceipt(
                             receipt.storeProvidedId,
                             "Bearer $accessToken"
                         )

@@ -85,7 +85,7 @@ dependencies {
     implementation 'androidx.compose.runtime:runtime-livedata:1.4.2'
 
     // Retrofit
-    implementation "com.squareup.retrofit2:retrofit:2.9.0"
+    implementation "com.squareup.retrofit2:retrofit:2.11.0"
     // Retrofit with Kotlin serialization Converter
     implementation "com.jakewharton.retrofit:retrofit2-kotlinx-serialization-converter:0.8.0"
     // Kotlin serialization
@@ -100,6 +100,6 @@ dependencies {
 
     def nav_version = "2.5.3"
     implementation "androidx.navigation:navigation-compose:$nav_version"
-    implementation "com.squareup.okhttp3:logging-interceptor:4.11.0"
+    implementation "com.squareup.okhttp3:logging-interceptor:4.12.0"
 
 }

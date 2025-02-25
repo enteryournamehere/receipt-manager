@@ -18,7 +18,7 @@ fun newHttpClient(context: Context, extraHeaders: Map<String, String>): OkHttpCl
         PersistentCookieJar(SetCookieCache(), SharedPrefsCookiePersistor(context))
 
     val logging = HttpLoggingInterceptor()
-    logging.setLevel(HttpLoggingInterceptor.Level.NONE)
+    logging.setLevel(HttpLoggingInterceptor.Level.BODY)
     var builder = OkHttpClient.Builder()
     builder = builder.addNetworkInterceptor { chain ->
         val requestBuilder = chain.request().newBuilder()
