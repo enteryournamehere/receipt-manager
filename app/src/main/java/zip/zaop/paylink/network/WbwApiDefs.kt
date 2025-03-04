@@ -350,13 +350,24 @@ data class ExpenseResponse(
     val payed_on: String,
     val exchange_rate: String,
     val payed_by_id: String,
-    val category: String?,
+    val category: Category?,
     val created_at: Int,
     val updated_at: Int,
     val source_amount: Amount,
     val amount: Amount,
     val shares: List<ShareWrapper>,
     val image: Image
+)
+
+@Serializable
+data class Category(
+    val id: Int,
+    val sub_id: Int,
+    val main_id: Int,
+    val icon: String,
+    // category_source: null, don't know what else it might be
+    val main_description: String,
+    val sub_description: String
 )
 
 @Serializable
