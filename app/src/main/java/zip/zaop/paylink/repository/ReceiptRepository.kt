@@ -95,7 +95,7 @@ class ReceiptRepository(private val database: ReceiptsDatabase, val context: Con
                             receipt.storeProvidedId,
                             "Bearer $accessToken"
                         )
-                    database.receiptDao.insertReceiptItems(details.itemsLine.asDatabaseModel(receipt.id))
+                    database.receiptDao.insertReceiptItems(details.asDatabaseModel(receipt.id))
                 }
 
                 "appie" -> {
