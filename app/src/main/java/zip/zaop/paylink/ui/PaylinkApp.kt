@@ -590,7 +590,7 @@ private fun CardItemList(
                 SelectableRow(
                     SelectableRowInfo(
                         item.description,
-                        convertCentsToString(item.totalPrice),
+                        convertCentsToString(item.totalPrice - item.totalDiscount),
                         item.hasBeenSentToWbw
                     ),
                     selected = isSelected,
@@ -713,6 +713,7 @@ private fun CardPreview() {
                     description = "Vijf euro",
                     storeProvidedItemCode = null,
                     totalPrice = 500,
+                    totalDiscount = 30,
                     indexInsideReceipt = 0,
                     id = 2432234,
                     hasBeenSentToWbw = false,
@@ -722,6 +723,7 @@ private fun CardPreview() {
                     description = "Dure dingen",
                     storeProvidedItemCode = null,
                     totalPrice = 3894,
+                    totalDiscount = 0,
                     indexInsideReceipt = 1,
                     id = 66425,
                     hasBeenSentToWbw = true,

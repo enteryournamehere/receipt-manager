@@ -17,5 +17,6 @@ data class ReceiptItem (
     val storeProvidedItemCode: String?,
     val description: String,
     val totalPrice: Int,
+    val totalDiscount: Int,
     val hasBeenSentToWbw: Boolean,
 )

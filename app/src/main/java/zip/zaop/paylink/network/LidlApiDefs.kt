@@ -38,61 +38,111 @@ fun NetworkLidlReceiptDetails.asDatabaseModel(receiptId: Int): List<DatabaseRece
     parser.nextTag()
     val articles: MutableList<DatabaseReceiptItem> = mutableListOf()
     val seenIds: MutableSet<String> = mutableSetOf()
-    while (parser.next() != XmlPullParser.END_DOCUMENT) {
-        if (parser.eventType != XmlPullParser.START_TAG) {
-            continue
-        }
-        if (parser.name == "head") {
-            skip(parser)
-        } else if (parser.name == "span") {
-            // each receipt item has 6+ spans with the same ID
-            val id = parser.getAttributeValue(null, "id") ?: continue
-            if (id in seenIds) {
-                continue
-            }
-            seenIds.add(id)
-            val s = parseArticle(parser, receiptId, articles.size)
+    var currentArticle: DatabaseReceiptItem? = null
+    var currentDiscount = 0
 
-            if (s != null) {
-                println(s)
-                articles.add(s)
+    var candidateAttributes: Map<String, String>? = null
+
+    while (parser.next() != XmlPullParser.END_DOCUMENT) {
+        when (parser.eventType) {
+            XmlPullParser.START_TAG -> {
+                if (parser.name == "span") {
+                    candidateAttributes = null
+
+                    // each receipt item has 6+ spans with the same ID
+                    val id = parser.getAttributeValue(null, "id")
+                    val attrs = (0 until parser.attributeCount).associate {
+                        parser.getAttributeName(it) to parser.getAttributeValue(it)
+                    }
+
+                    if (attrs["class"]?.contains("discount") == true) {
+                        currentDiscount = parseDiscount(parser)
+                        continue
+                    }
+
+                    if (id != null && id !in seenIds &&
+                        attrs["class"]?.contains("css_bold") == true &&
+                        attrs["data-art-description"] != null
+                    ) {
+                        candidateAttributes = attrs
+                        seenIds.add(id)
+                    }
+                } else if (parser.name == "head") {
+                    skip(parser)
+                }
+            }
+            XmlPullParser.TEXT -> {
+                if (candidateAttributes != null) {
+                    val text = parser.text.trim()
+                    val descriptionAttr = candidateAttributes!!["data-art-description"]
+
+                    if (text.isNotEmpty() && descriptionAttr?.startsWith(text) == true) {
+                        val newArticle = buildItemFromAttributes(candidateAttributes!!, receiptId)
+
+                        if (newArticle != null) {
+                            if (currentArticle != null) {
+                                val finalPreviousArticle = currentArticle.copy(
+                                    totalDiscount = currentDiscount,
+                                    indexInsideReceipt = articles.size
+                                )
+                                articles.add(finalPreviousArticle)
+                                currentDiscount = 0
+                            }
+                            currentArticle = newArticle
+                        }
+                    }
+                    candidateAttributes = null
+                }
             }
         }
     }
 
+    if (currentArticle != null) {
+        val finalArticle = currentArticle.copy(
+            totalDiscount = currentDiscount,
+            indexInsideReceipt = articles.size
+        )
+        articles.add(finalArticle)
+    }
     return articles
 }
 
-private fun parseArticle(parser: XmlPullParser, receiptId: Int, indexInsideReceipt: Int): DatabaseReceiptItem? {
-    parser.require(XmlPullParser.START_TAG, null, "span")
-    val attrs: MutableMap<String, String> = mutableMapOf()
-    for (i in 0 until parser.attributeCount) {
-        val name = parser.getAttributeName(i)
-        val value = parser.getAttributeValue(i)
-        attrs[name] = value
-    }
-
+private fun buildItemFromAttributes(attrs: Map<String, String>, receiptId: Int): DatabaseReceiptItem? {
     if (attrs["class"]?.contains("article") != true) {
         return null
     }
 
-    val quantityString = when (attrs["data-art-quantity"] ) {
-        null -> "1"
-        else -> attrs["data-art-quantity"]!!
-    }
+    val quantityString = attrs["data-art-quantity"] ?: "1"
     val quantityFloat = parseFloat(quantityString.replace(",", "."))
-    val unitPrice = floatEurosToCents(attrs["data-unit-price"])!!
+    val unitPrice = floatEurosToCents(attrs["data-unit-price"])
+
+    if (unitPrice == null) {
+        return null
+    }
+
     return DatabaseReceiptItem(
         item_id = 0,
         receiptId = receiptId,
         unitPrice = unitPrice,
-        quantity = quantityFloat, // TODO handle KGs!!
+        quantity = quantityFloat,
         storeProvidedItemCode = attrs["data-art-id"],
         description = attrs["data-art-description"]!!,
-        totalPrice = (quantityFloat * unitPrice).roundToInt(), // TODO: take value from receipt HTML, and handle discounts
-        indexInsideReceipt = indexInsideReceipt,
+        totalPrice = (quantityFloat * unitPrice).roundToInt(),
+        indexInsideReceipt = -1,
         hasBeenSentToWbw = false,
+        totalDiscount = 0,
     )
+}
+
+private fun parseDiscount(parser: XmlPullParser): Int {
+    parser.require(XmlPullParser.START_TAG, null, "span")
+    val txt = parser.nextText();
+    return try {
+        (-txt.replace(",", ".").toFloat() * 100).roundToInt()
+    }
+    catch (e: NumberFormatException) {
+        0
+    }
 }
 
 @Throws(XmlPullParserException::class, IOException::class)

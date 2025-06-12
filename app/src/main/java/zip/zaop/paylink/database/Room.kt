@@ -1,6 +1,7 @@
 package zip.zaop.paylink.database
 
 import android.content.Context
+import androidx.room.AutoMigration
 import androidx.room.Dao
 import androidx.room.Database
 import androidx.room.Delete
@@ -69,7 +70,10 @@ interface ReceiptDao {
         DatabaseAuthState::class,
         DatabaseWbwMember::class,
         DatabaseWbwList::class],
-    version = 7
+    version = 8,
+    autoMigrations = [
+        AutoMigration (from = 7, to = 8)
+    ]
 )
 abstract class ReceiptsDatabase : RoomDatabase() {
     abstract val receiptDao: ReceiptDao

@@ -117,6 +117,7 @@ fun List<AppieReceiptItem>.asDatabaseModel(receiptId: Int): List<DatabaseReceipt
             totalPrice = floatEurosToCents(it.amount)!!,
             indexInsideReceipt = int,
             hasBeenSentToWbw = false,
+            totalDiscount = 0, // TODO
         )
     }
 }

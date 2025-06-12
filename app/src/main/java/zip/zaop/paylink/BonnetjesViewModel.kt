@@ -153,13 +153,13 @@ class BonnetjesViewModel(private val application: Application) : AndroidViewMode
             if (added)
                 _uiState.value = _uiState.value.copy(
                     selectedCount = _uiState.value.selectedCount.inc(),
-                    selectedAmount = _uiState.value.selectedAmount + item.totalPrice
+                    selectedAmount = _uiState.value.selectedAmount + (item.totalPrice - item.totalDiscount)
                 )
         } else {
             val removed = updatedSet.remove(item.indexInsideReceipt)
             if (removed) _uiState.value = _uiState.value.copy(
                 selectedCount = _uiState.value.selectedCount.dec(),
-                selectedAmount = _uiState.value.selectedAmount - item.totalPrice
+                selectedAmount = _uiState.value.selectedAmount - (item.totalPrice - item.totalDiscount)
             )
         }
         _selectionStateFlow.value = _selectionStateFlow.value + (receipt.id to updatedSet)
