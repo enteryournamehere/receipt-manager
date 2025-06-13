@@ -11,6 +11,7 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.Transaction
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -21,6 +22,16 @@ interface ReceiptDao {
                 "order by receipt.date desc"
     )
     fun loadReceiptsAndItems(): Flow<Map<DatabaseReceipt, List<DatabaseReceiptItem>>>
+
+    @Query("delete from receipt_item")
+    fun clearReceiptItemsTable()
+    @Query("delete from receipt")
+    fun clearReceiptsTable()
+    @Transaction
+    fun clearReceipts() {
+        clearReceiptItemsTable()
+        clearReceiptsTable()
+    }
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     fun insertReceipts(receipts: List<DatabaseReceipt>)

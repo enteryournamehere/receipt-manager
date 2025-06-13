@@ -1,5 +1,6 @@
 package zip.zaop.paylink.network
 
+import android.content.Context
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.Json
@@ -37,7 +38,17 @@ interface AppieApiService {
 }
 
 object AppieApi {
-    val retrofitService: AppieApiService by lazy {
-        retrofit.create(AppieApiService::class.java)
-    }
+    @Volatile
+    private var INSTANCE: AppieApiService? = null
+
+    fun getRetrofitService(context: Context): AppieApiService =
+        INSTANCE ?: synchronized(this) {
+            INSTANCE ?: newRetrofit(
+                context,
+                BASE_URL,
+                AppieApiService::class.java,
+                mapOf()
+            )
+                .also { INSTANCE = it }
+        }
 }

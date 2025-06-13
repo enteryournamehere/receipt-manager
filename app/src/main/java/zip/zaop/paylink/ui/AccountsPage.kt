@@ -110,6 +110,9 @@ fun AccountsComposable(
             Button(onClick = { launcher.launch("test.db") }) {
                 Text(text = "Export database")
             }
+            Button(onClick = { accountsViewModel.clearReceipts() }) {
+                Text(text = "Clear stored receipts")
+            }
         }
     }
 }

@@ -62,6 +62,12 @@ class ReceiptRepository(private val database: ReceiptsDatabase, val context: Con
         }
     }
 
+    suspend fun deleteAllReceipts() {
+        withContext(Dispatchers.IO) {
+            database.receiptDao.clearReceipts()
+        }
+    }
+
     suspend fun refreshReceipts(platform: LinkablePlatform, accessToken: String) {
         withContext(Dispatchers.IO) {
             when (platform) {
@@ -71,7 +77,7 @@ class ReceiptRepository(private val database: ReceiptsDatabase, val context: Con
                 }
 
                 LinkablePlatform.APPIE -> {
-                    val receipts = AppieApi.retrofitService.getReceipts("Bearer $accessToken")
+                    val receipts = AppieApi.getRetrofitService(context).getReceipts("Bearer $accessToken")
                     database.receiptDao.insertReceipts(receipts.asDatabaseModel())
                 }
 
@@ -100,7 +106,7 @@ class ReceiptRepository(private val database: ReceiptsDatabase, val context: Con
 
                 "appie" -> {
                     val details =
-                        AppieApi.retrofitService.getReceipt(
+                        AppieApi.getRetrofitService(context).getReceipt(
                             receipt.storeProvidedId,
                             "Bearer $accessToken"
                         )

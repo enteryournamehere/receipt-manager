@@ -288,4 +288,14 @@ class AccountsViewModel(private val application: Application) : AndroidViewModel
             receiptRepository.exportDatabase(path);
         }
     }
+
+    fun clearReceipts() {
+        viewModelScope.launch {
+            try {
+                receiptRepository.deleteAllReceipts()
+            } catch (e: Exception) {
+                println("Failed to clear receipts " + e)
+            }
+        }
+    }
 }

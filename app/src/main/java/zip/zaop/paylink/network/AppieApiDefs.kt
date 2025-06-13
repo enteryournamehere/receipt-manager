@@ -103,21 +103,35 @@ fun toFloat(inString: String): Float {
 
 fun List<AppieReceiptItem>.asDatabaseModel(receiptId: Int): List<DatabaseReceiptItem> {
     return this.filter {
-        // only keep actual products
-        it.type == "product" && it.indicator != null
+        it.type == "product"
     }.mapIndexed { int, it ->
-        DatabaseReceiptItem(
-            item_id = 0,
-            receiptId = receiptId,
-            unitPrice = floatEurosToCents(it.price)
-                ?: floatEurosToCents(it.amount)!!, // TODO check whats the situation for multiple of same product
-            quantity = toFloat(it.quantity!!.replace("KG", "")), // TODO handle KGs!!
-            storeProvidedItemCode = null,
-            description = it.description!!,
-            totalPrice = floatEurosToCents(it.amount)!!,
-            indexInsideReceipt = int,
-            hasBeenSentToWbw = false,
-            totalDiscount = 0, // TODO
-        )
-    }
+        if (it.indicator != null)
+            DatabaseReceiptItem(
+                item_id = 0,
+                receiptId = receiptId,
+                unitPrice = floatEurosToCents(it.price)
+                    ?: floatEurosToCents(it.amount)!!,
+                quantity = toFloat(it.quantity!!.replace("KG", "")), // TODO handle KGs!!
+                storeProvidedItemCode = null,
+                description = it.description!!,
+                totalPrice = floatEurosToCents(it.amount)!!,
+                indexInsideReceipt = int,
+                hasBeenSentToWbw = false,
+                totalDiscount = 0,
+            )
+        else if (it.quantity == "BONUS")
+            DatabaseReceiptItem(
+                item_id = 0,
+                receiptId = receiptId,
+                unitPrice = 0,
+                quantity = 0.0f,
+                storeProvidedItemCode = null,
+                description = "Bonus: " + it.description!!,
+                totalPrice = floatEurosToCents(it.amount)!!,
+                indexInsideReceipt = int,
+                hasBeenSentToWbw = false,
+                totalDiscount = 0,
+            )
+        else null
+    }.filterNotNull()
 }
