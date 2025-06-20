@@ -13,6 +13,8 @@ data class DatabaseReceipt constructor(
     val id: Int, // unique database ID
     @ColumnInfo(name = "store_provided_id")
     val storeProvidedId: String,
+    @ColumnInfo(name = "account_id", defaultValue = "0")
+    val accountId: Long,
     val date: String,
     val store: String, // todo ... yeah. for now: "ah", "lidl"
     @ColumnInfo(name = "total_amount")
@@ -41,9 +43,10 @@ data class DatabaseReceiptItem constructor(
     val hasBeenSentToWbw: Boolean,
 )
 
-@Entity(tableName="auth_state")
+@Entity(tableName = "auth_state", primaryKeys = ["id", "platform"])
 data class DatabaseAuthState constructor(
-    @PrimaryKey
+    @ColumnInfo(defaultValue = "0")
+    val id: Long,
     val platform: LinkablePlatform, // ah, lidl, wbw, etc.
     val state: String, // JSON :-)
 )
@@ -76,6 +79,7 @@ fun Map<DatabaseReceipt, List<DatabaseReceiptItem>>.asDomainModel(): List<Receip
         Receipt(
             id = entry.key.id,
             store = entry.key.store,
+            accountId = entry.key.accountId,
             storeProvidedId = entry.key.storeProvidedId,
             date = entry.key.date,
             totalAmount = entry.key.totalAmount,
@@ -93,3 +97,4 @@ fun Map<DatabaseReceipt, List<DatabaseReceiptItem>>.asDomainModel(): List<Receip
         )
     }
 }
+

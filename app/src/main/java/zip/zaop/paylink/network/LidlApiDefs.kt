@@ -18,10 +18,11 @@ data class NetworkLidlReceiptList(
     val tickets: List<NetworkLidlReceiptListItem>
 )
 
-fun NetworkLidlReceiptList.asDatabaseModel(): List<DatabaseReceipt> {
+fun NetworkLidlReceiptList.asDatabaseModel(accountId: Long): List<DatabaseReceipt> {
     return tickets.map {
         DatabaseReceipt(
             id = 0,
+            accountId = accountId,
             store = "lidl",
             date = it.date,
             storeProvidedId = it.id,
@@ -74,10 +75,10 @@ fun NetworkLidlReceiptDetails.asDatabaseModel(receiptId: Int): List<DatabaseRece
             XmlPullParser.TEXT -> {
                 if (candidateAttributes != null) {
                     val text = parser.text.trim()
-                    val descriptionAttr = candidateAttributes!!["data-art-description"]
+                    val descriptionAttr = candidateAttributes["data-art-description"]
 
                     if (text.isNotEmpty() && descriptionAttr?.startsWith(text) == true) {
-                        val newArticle = buildItemFromAttributes(candidateAttributes!!, receiptId)
+                        val newArticle = buildItemFromAttributes(candidateAttributes, receiptId)
 
                         if (newArticle != null) {
                             if (currentArticle != null) {

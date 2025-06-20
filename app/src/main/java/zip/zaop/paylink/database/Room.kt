@@ -6,13 +6,15 @@ import androidx.room.Dao
 import androidx.room.Database
 import androidx.room.Delete
 import androidx.room.Insert
-import androidx.room.MapInfo
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.Transaction
+import androidx.room.migration.Migration
 import kotlinx.coroutines.flow.Flow
+
+import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Dao
 interface ReceiptDao {
@@ -43,17 +45,19 @@ interface ReceiptDao {
     fun setWbwFlag(receipt_id: Int, item_index: Int)
 
     @Query("select * from auth_state where platform = :platform")
-    fun getAuthState(platform: LinkablePlatform): DatabaseAuthState
+    fun getAuthState(platform: LinkablePlatform): List<DatabaseAuthState>
 
-    @MapInfo(keyColumn = "platform", valueColumn = "state")
     @Query("select * from auth_state")
-    fun getAuthStates(): Flow<Map<LinkablePlatform, String>>
+    fun getAuthStates(): Flow<List<DatabaseAuthState>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    fun setAuthState(state: DatabaseAuthState)
+    fun setAuthState(state: DatabaseAuthState): Long
 
     @Query("delete from auth_state where platform = :platform")
     fun clearAuthState(platform: LinkablePlatform)
+
+    @Query("delete from auth_state where id = :id and platform = :platform")
+    fun deleteAuthState(id: Long, platform: LinkablePlatform)
 
     @Query("select * from wbw_list")
     fun getWbwLists(): Flow<List<DatabaseWbwList>>
@@ -81,9 +85,10 @@ interface ReceiptDao {
         DatabaseAuthState::class,
         DatabaseWbwMember::class,
         DatabaseWbwList::class],
-    version = 8,
+    version = 11,
     autoMigrations = [
-        AutoMigration (from = 7, to = 8)
+        AutoMigration(from = 7, to = 8),
+        AutoMigration(from = 8, to = 9),
     ]
 )
 abstract class ReceiptsDatabase : RoomDatabase() {
@@ -99,8 +104,22 @@ fun getDatabase(context: Context): ReceiptsDatabase {
                 context.applicationContext,
                 ReceiptsDatabase::class.java,
                 "receipts"
-            ).fallbackToDestructiveMigration().build()
+            ).addMigrations(MIGRATION_10_11).fallbackToDestructiveMigration().build()
         }
     }
     return INSTANCE
+}
+
+val MIGRATION_10_11 = object : Migration(10, 11) {
+    override fun migrate(database: SupportSQLiteDatabase) {
+        database.execSQL("DROP TABLE IF EXISTS auth_state")
+        database.execSQL("""
+            CREATE TABLE IF NOT EXISTS auth_state (
+                id INTEGER NOT NULL DEFAULT 0,
+                platform TEXT NOT NULL DEFAULT 'undefined',
+                state TEXT NOT NULL DEFAULT 'undefined',
+                PRIMARY KEY(id, platform, state)
+            )
+        """.trimIndent())
+    }
 }

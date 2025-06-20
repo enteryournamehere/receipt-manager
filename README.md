@@ -1,6 +1,6 @@
 # Receipt manager
 
-This app uses the APIs that Lidl and Albert Heijn's apps also use to fetch your digital receipts. You log in with your store account(s).
+This app uses the APIs that Lidl and Albert Heijn's apps also use to fetch your digital receipts. You log in with your store account(s). Multiple accounts per store are supported.
 
 You can select purchased items to copy their total cost or add them to WieBetaaltWat/Splitser if logged in.
 

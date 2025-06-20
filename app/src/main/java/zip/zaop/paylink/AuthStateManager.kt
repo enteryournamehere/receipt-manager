@@ -27,6 +27,7 @@ import net.openid.appauth.RegistrationResponse
 import net.openid.appauth.TokenResponse
 import org.json.JSONException
 import zip.zaop.paylink.database.LinkablePlatform
+import zip.zaop.paylink.database.DatabaseAuthState
 import zip.zaop.paylink.repository.ReceiptRepository
 import java.util.concurrent.atomic.AtomicReference
 
@@ -37,11 +38,13 @@ import java.util.concurrent.atomic.AtomicReference
  */
 class AuthStateManager private constructor(
     receiptRepository: ReceiptRepository,
-    platform: LinkablePlatform
+    platform: LinkablePlatform,
+    accountId: Long
 ) {
     private val mCurrentAuthState: AtomicReference<AuthState> = AtomicReference()
-    private val lidlRepository = receiptRepository
+    private val receiptRepository = receiptRepository
     private val mPlatform = platform
+    private var mAccountId = accountId
 
     @get:AnyThread
     val current: AuthState
@@ -105,22 +108,29 @@ class AuthStateManager private constructor(
         return replace(current)
     }
 
-    private val auths: Flow<Map<LinkablePlatform, String>> = receiptRepository.auth
+    @AnyThread
+    suspend fun delete() {
+        receiptRepository.deleteAuthState(mAccountId, mPlatform)
+        mCurrentAuthState.set(AuthState())
+    }
+
+    private val auths: Flow<Map<LinkablePlatform, List<DatabaseAuthState>>> = receiptRepository.authStates
 
     @AnyThread
     private suspend fun readState(): AuthState {
         Log.i(TAG, "readstate start")
-        var authStates: Map<LinkablePlatform, String> = emptyMap()
+        var authStates: Map<LinkablePlatform, List<DatabaseAuthState>> = emptyMap()
 
         auths.take(1).collect { authMap ->
             authStates = authMap
         }
         Log.i(TAG, "readstate read")
 
-        if (authStates.containsKey(mPlatform)) {
-            val currentState = authStates[mPlatform]!!
+        if (authStates.containsKey(mPlatform) && authStates[mPlatform]!!.isNotEmpty()) {
+            val entry = authStates[mPlatform]!!.find { it.id == mAccountId }
+            val currentState = entry?.state
             return try {
-                val mep = AuthState.jsonDeserialize(currentState)
+                val mep = if (currentState != null) AuthState.jsonDeserialize(currentState) else AuthState()
                 Log.i(TAG, "Read auth state from database.")
                 mep
             } catch (ex: JSONException) {
@@ -140,16 +150,16 @@ class AuthStateManager private constructor(
         val str = state.jsonSerializeString()
         Log.i(TAG, str)
 
-        lidlRepository.updateAuthState(mPlatform, str)
+        receiptRepository.updateAuthState(mPlatform, str, mAccountId)
     }
 
     companion object {
         private const val TAG = "AuthStateManager"
-        @Volatile private var INSTANCE_MAP: MutableMap<LinkablePlatform, AuthStateManager> = mutableMapOf()
+        @Volatile private var INSTANCE_MAP: MutableMap<Pair<LinkablePlatform, Long>, AuthStateManager> = mutableMapOf()
 
-        fun getInstance(context: Context, repo: ReceiptRepository, platform: LinkablePlatform): AuthStateManager =
-            INSTANCE_MAP[platform] ?: synchronized(this) {
-                INSTANCE_MAP[platform] ?: AuthStateManager(repo, platform).also { INSTANCE_MAP[platform] = it }
+        fun getInstance(context: Context, repo: ReceiptRepository, platform: LinkablePlatform, accountId: Long): AuthStateManager =
+            INSTANCE_MAP[platform to accountId] ?: synchronized(this) {
+                INSTANCE_MAP[platform to accountId] ?: AuthStateManager(repo, platform, accountId).also { INSTANCE_MAP[platform to accountId] = it }
             }
     }
 }

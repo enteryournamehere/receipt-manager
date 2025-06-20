@@ -3,6 +3,7 @@ package zip.zaop.paylink.domain
 data class Receipt(
     val id: Int,
     val items: List<ReceiptItem>?,
+    val accountId: Long,
     val store: String,
     val date: String,
     val totalAmount: Int, // CENTS

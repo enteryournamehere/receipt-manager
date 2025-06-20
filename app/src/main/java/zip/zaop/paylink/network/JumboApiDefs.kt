@@ -67,10 +67,11 @@ fun convertTimestamp(timestamp: String): String {
     return utcTimestamp.toString()
 }
 
-fun List<JumboReceiptListItem>.asDatabaseModel(): List<DatabaseReceipt> {
+fun List<JumboReceiptListItem>.asDatabaseModel(accountId: Long): List<DatabaseReceipt> {
     return this.map {
         DatabaseReceipt(
             id = 0,
+            accountId = accountId,
             store = "jumbo",
             date = convertTimestamp(it.purchaseEndOn),
             storeProvidedId = it.transactionId,

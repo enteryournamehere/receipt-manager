@@ -28,7 +28,17 @@ class ReceiptRepository(private val database: ReceiptsDatabase, val context: Con
     val receipts: Flow<List<Receipt>> =
         database.receiptDao.loadReceiptsAndItems().map { it.asDomainModel() }
 
-    val auth: Flow<Map<LinkablePlatform, String>> = database.receiptDao.getAuthStates()
+    val authStates: Flow<Map<LinkablePlatform, List<DatabaseAuthState>>> =
+        database.receiptDao.getAuthStates().map { list ->
+            list.groupBy { it.platform }
+        }
+
+    val auth: Flow<Map<LinkablePlatform, List<String>>> =
+        authStates.map { map ->
+            map.mapValues { entry ->
+                entry.value.map { it.state }
+            }
+        }
 
     val wbwLists: Flow<List<DatabaseWbwList>> = database.receiptDao.getWbwLists()
     val wbwMembers: Flow<List<DatabaseWbwMember>> = database.receiptDao.getWbwMembers()
@@ -68,23 +78,24 @@ class ReceiptRepository(private val database: ReceiptsDatabase, val context: Con
         }
     }
 
-    suspend fun refreshReceipts(platform: LinkablePlatform, accessToken: String) {
+    suspend fun refreshReceipts(authState: DatabaseAuthState, accessToken: String) {
+        val platform = authState.platform
         withContext(Dispatchers.IO) {
             when (platform) {
                 LinkablePlatform.LIDL -> {
                     val receipts = LidlApi.getRetrofitService(context).getReceipts(1, "Bearer $accessToken")
-                    database.receiptDao.insertReceipts(receipts.asDatabaseModel())
+                    database.receiptDao.insertReceipts(receipts.asDatabaseModel(authState.id))
                 }
 
                 LinkablePlatform.APPIE -> {
                     val receipts = AppieApi.getRetrofitService(context).getReceipts("Bearer $accessToken")
-                    database.receiptDao.insertReceipts(receipts.asDatabaseModel())
+                    database.receiptDao.insertReceipts(receipts.asDatabaseModel(authState.id))
                 }
 
                 LinkablePlatform.JUMBO -> {
                     val receipts =
                         JumboApi.getRetrofitService(context).getReceipts("Bearer $accessToken")
-                    database.receiptDao.insertReceipts(receipts.asDatabaseModel())
+                    database.receiptDao.insertReceipts(receipts.asDatabaseModel(authState.id))
                 }
 
                 else -> return@withContext
@@ -129,15 +140,23 @@ class ReceiptRepository(private val database: ReceiptsDatabase, val context: Con
         }
     }
 
-    suspend fun updateAuthState(platform: LinkablePlatform, state: String) {
+    suspend fun updateAuthState(platform: LinkablePlatform, state: String, id: Long = 0) {
         withContext(Dispatchers.IO) {
-            database.receiptDao.setAuthState(DatabaseAuthState(platform, state))
+            database.receiptDao.setAuthState(
+                DatabaseAuthState(id = id, platform = platform, state = state)
+            ).toLong()
         }
     }
 
     suspend fun deleteAuthState(platform: LinkablePlatform) {
         withContext(Dispatchers.IO) {
             database.receiptDao.clearAuthState(platform)
+        }
+    }
+
+    suspend fun deleteAuthState(id: Long, platform: LinkablePlatform) {
+        withContext(Dispatchers.IO) {
+            database.receiptDao.deleteAuthState(id, platform)
         }
     }
 
