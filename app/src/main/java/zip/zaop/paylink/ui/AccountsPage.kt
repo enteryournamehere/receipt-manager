@@ -18,6 +18,7 @@ import androidx.compose.material.icons.rounded.DoneAll
 import androidx.compose.material.icons.rounded.PedalBike
 import androidx.compose.material.icons.rounded.ShoppingBasket
 import androidx.compose.material.icons.rounded.ShoppingCart
+import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -34,6 +35,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import zip.zaop.paylink.AccountsViewModel
+import zip.zaop.paylink.database.DatabaseAuthState
 import zip.zaop.paylink.database.LinkablePlatform
 
 @Composable
@@ -66,35 +68,35 @@ fun AccountsComposable(
                 .width(IntrinsicSize.Min)
         ) {
             Spacer(Modifier.height(20.dp))
-            ConnectAccountButton(
-                "Lidl",
-                Icons.Rounded.ShoppingBasket,
-                uiState.connections[LinkablePlatform.LIDL] ?: false,
-                {
-                    accountsViewModel.doLidlLogin()
-                })
-            ConnectAccountButton(
-                "Albert Heijn",
-                Icons.Rounded.ShoppingCart,
-                uiState.connections[LinkablePlatform.APPIE] ?: false,
-                {
-                    accountsViewModel.doAppieLogin()
-                })
-            ConnectAccountButton(
-                "Jumbo",
-                Icons.Rounded.PedalBike,
-                uiState.connections[LinkablePlatform.JUMBO] ?: false,
-                {
-                    accountsViewModel.doJumboLogin()
-                })
+            ConnectAccountList(
+                title = "Lidl",
+                icon = Icons.Rounded.ShoppingBasket,
+                connections = uiState.connections[LinkablePlatform.LIDL] ?: emptyList(),
+                onAdd = { accountsViewModel.doLidlLogin() },
+                onRemove = { accountsViewModel.unlinkAccount(it.id, LinkablePlatform.LIDL) }
+            )
+            ConnectAccountList(
+                title = "Albert Heijn",
+                icon = Icons.Rounded.ShoppingCart,
+                connections = uiState.connections[LinkablePlatform.APPIE] ?: emptyList(),
+                onAdd = { accountsViewModel.doAppieLogin() },
+                onRemove = { accountsViewModel.unlinkAccount(it.id, LinkablePlatform.APPIE) }
+            )
+            ConnectAccountList(
+                title = "Jumbo",
+                icon = Icons.Rounded.PedalBike,
+                connections = uiState.connections[LinkablePlatform.JUMBO] ?: emptyList(),
+                onAdd = { accountsViewModel.doJumboLogin() },
+                onRemove = { accountsViewModel.unlinkAccount(it.id, LinkablePlatform.JUMBO) }
+            )
             ConnectAccountButton(
                 "WieBetaaltWat",
                 Icons.Rounded.DoneAll,
-                uiState.connections[LinkablePlatform.WBW] ?: false,
+                (uiState.connections[LinkablePlatform.WBW]?.size ?: 0) > 0,
                 {
                     accountsViewModel.startWbwLogin()
                 })
-            if (uiState.connections[LinkablePlatform.WBW] == true) {
+            if ((uiState.connections[LinkablePlatform.WBW]?.size ?: 0) > 0) {
                 Button(onClick = { accountsViewModel.getWbwListStuff() }) {
                     Text("refresh wbw lists")
                 }
@@ -139,6 +141,48 @@ fun ConnectAccountButton(
             Text(title, Modifier.weight(1f))
             IconButton(onClick = { onClickHandler() }) {
                 Icon(if (isConnected) Icons.Rounded.Check else Icons.Rounded.Add, "GO")
+            }
+        }
+    }
+}
+
+@Composable
+fun ConnectAccountList(
+    title: String,
+    icon: ImageVector,
+    connections: List<DatabaseAuthState>,
+    onAdd: () -> Unit,
+    onRemove: (DatabaseAuthState) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val isConnected = connections.isNotEmpty()
+    Card(
+        colors = if (isConnected) CardDefaults.cardColors() else CardDefaults.outlinedCardColors(),
+        border = if (isConnected) null else CardDefaults.outlinedCardBorder(),
+        modifier = modifier
+            .width(300.dp)
+            .padding(5.dp)
+
+    ) {
+        Column(modifier = Modifier.padding(10.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(icon, title)
+                Spacer(modifier = Modifier.size(ButtonDefaults.IconSpacing))
+                Text(title, Modifier.weight(1f))
+                IconButton(onClick = { onAdd() }) {
+                    Icon(Icons.Rounded.Add, "Add")
+                }
+            }
+            connections.forEach { state ->
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(start = 20.dp, top = 4.dp)
+                ) {
+                    Text("Account ${state.id}", Modifier.weight(1f))
+                    IconButton(onClick = { onRemove(state) }) {
+                        Icon(Icons.Rounded.Delete, "Remove")
+                    }
+                }
             }
         }
     }

@@ -7,12 +7,10 @@ import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.mapLatest
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -24,6 +22,7 @@ import net.openid.appauth.AuthorizationServiceConfiguration
 import net.openid.appauth.ResponseTypeValues
 import net.openid.appauth.connectivity.DefaultConnectionBuilder
 import retrofit2.HttpException
+import zip.zaop.paylink.database.DatabaseAuthState
 import zip.zaop.paylink.database.LinkablePlatform
 import zip.zaop.paylink.database.getDatabase
 import zip.zaop.paylink.network.LoginErrorResponse
@@ -35,7 +34,7 @@ import zip.zaop.paylink.util.ErrorResponse
 import zip.zaop.paylink.util.parseHttpException
 
 data class AccountsScreenUiState(
-    val connections: Map<LinkablePlatform, Boolean> = mapOf(),
+    val connections: Map<LinkablePlatform, List<DatabaseAuthState>> = mapOf(),
     val wbwLoginState: WbwLoginState,
     val alertInfo: AlertInfo? = null,
 )
@@ -48,18 +47,15 @@ data class WbwLoginState(
 
 class AccountsViewModel(private val application: Application) : AndroidViewModel(application) {
     private var mAuthServices: MutableMap<LinkablePlatform, AuthorizationService> = mutableMapOf()
-    private var mStateManagers: MutableMap<LinkablePlatform, AuthStateManager> = mutableMapOf()
 
     private val receiptRepository = ReceiptRepository(getDatabase(application), application)
 
-    private val auths = receiptRepository.auth
-    @OptIn(ExperimentalCoroutinesApi::class)
-    private val wbwAuthState: Flow<String?> = auths.mapLatest { it[LinkablePlatform.WBW] }
-
+    private val authStates = receiptRepository.authStates
+    private val accountsByPlatform = authStates
     private val _uiState = MutableStateFlow(AccountsScreenUiState(wbwLoginState = WbwLoginState()))
 
-    val uiState = _uiState.combine(wbwAuthState) { uistate, wbwstate ->
-        uistate.copy(connections = uistate.connections.plus(LinkablePlatform.WBW to (wbwstate != null)))
+    val uiState = combine(_uiState, accountsByPlatform) { uistate, states ->
+        uistate.copy(connections = states)
     }.stateIn(
         viewModelScope,
         SharingStarted.Eagerly,
@@ -73,20 +69,8 @@ class AccountsViewModel(private val application: Application) : AndroidViewModel
     init {
         val context = application.applicationContext
 
-        mStateManagers[LinkablePlatform.LIDL] =
-            AuthStateManager.getInstance(context, receiptRepository, LinkablePlatform.LIDL)
-        mStateManagers[LinkablePlatform.APPIE] =
-            AuthStateManager.getInstance(context, receiptRepository, LinkablePlatform.APPIE)
-        mStateManagers[LinkablePlatform.JUMBO] =
-            AuthStateManager.getInstance(context, receiptRepository, LinkablePlatform.JUMBO)
-
         _uiState.value =
             AccountsScreenUiState(
-                connections = mapOf(
-                    LinkablePlatform.LIDL to mStateManagers[LinkablePlatform.LIDL]!!.current.isAuthorized,
-                    LinkablePlatform.APPIE to mStateManagers[LinkablePlatform.APPIE]!!.current.isAuthorized,
-                    LinkablePlatform.JUMBO to mStateManagers[LinkablePlatform.JUMBO]!!.current.isAuthorized,
-                ),
                 wbwLoginState = WbwLoginState()
             )
 
@@ -154,7 +138,7 @@ class AccountsViewModel(private val application: Application) : AndroidViewModel
                 // go back
                 _uiState.value = _uiState.value.copy(wbwLoginState = WbwLoginState())
                 // save ??? (actually stored in cookie jar)
-                receiptRepository.updateAuthState(LinkablePlatform.WBW, "yeah")
+                receiptRepository.updateAuthState(LinkablePlatform.WBW, "yeah", 1)
 
                 getWbwListStuff()
             } catch (e: HttpException) {
@@ -263,7 +247,12 @@ class AccountsViewModel(private val application: Application) : AndroidViewModel
         val authRequest = authRequestBuilder.build()
 
         runBlocking(Dispatchers.IO) {
-            mStateManagers[platform]!!.replace(AuthState(serviceConfig))
+            AuthStateManager.getInstance(
+                application.applicationContext,
+                receiptRepository,
+                platform,
+                0
+            ).replace(AuthState(serviceConfig))
         }
 
         mAuthServices[platform]!!.performAuthorizationRequest(
@@ -286,6 +275,12 @@ class AccountsViewModel(private val application: Application) : AndroidViewModel
     fun exportDatabase(path: Uri) {
         viewModelScope.launch {
             receiptRepository.exportDatabase(path);
+        }
+    }
+
+    fun unlinkAccount(id: Long, platform: LinkablePlatform) {
+        viewModelScope.launch {
+            receiptRepository.deleteAuthState(id, platform)
         }
     }
 

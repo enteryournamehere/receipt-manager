@@ -77,10 +77,11 @@ data class AppieReceiptItem(
     val price: String?, // used for total, also for "price per unit" if product is by weight or quantity > 1
 )
 
-fun List<AppieReceiptListItem>.asDatabaseModel(): List<DatabaseReceipt> {
+fun List<AppieReceiptListItem>.asDatabaseModel(accountId: Long, _compileDummy: Boolean = true): List<DatabaseReceipt> {
     return this.map {
         DatabaseReceipt(
             id = 0,
+            accountId = accountId,
             store = "appie",
             date = it.transactionMoment,
             storeProvidedId = it.transactionId,

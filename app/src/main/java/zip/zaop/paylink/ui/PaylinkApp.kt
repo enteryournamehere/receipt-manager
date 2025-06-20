@@ -64,6 +64,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -92,11 +93,13 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import net.openid.appauth.AuthorizationException
+import net.openid.appauth.AuthorizationResponse
 import zip.zaop.paylink.BonnetjesViewModel
 import zip.zaop.paylink.FullInfo
 import zip.zaop.paylink.database.DatabaseWbwList
 import zip.zaop.paylink.database.DatabaseWbwMember
 import zip.zaop.paylink.database.LinkablePlatform
+import zip.zaop.paylink.database.DatabaseAuthState
 import zip.zaop.paylink.domain.Receipt
 import zip.zaop.paylink.domain.ReceiptItem
 import zip.zaop.paylink.ui.theme.PaylinkTheme
@@ -366,7 +369,9 @@ private fun BonnetjesComposable(
     intent: Intent,
     bonnetjesViewModel: BonnetjesViewModel = viewModel(),
 ) {
-    bonnetjesViewModel.start(intent)
+    LaunchedEffect(intent.getStringExtra(AuthorizationResponse.EXTRA_RESPONSE)) {
+        bonnetjesViewModel.start(intent)
+    }
     val uiState by bonnetjesViewModel.uiState.collectAsState()
     val receipts by bonnetjesViewModel.receiptsPlus.collectAsState(initial = listOf())
     val wbwLists by bonnetjesViewModel.lists.collectAsState(initial = listOf())
@@ -403,6 +408,7 @@ private fun BonnetjesComposable(
                         if (platform != null) {
                             bonnetjesViewModel.fetchReceiptInfo(
                                 platform,
+                                it.accountId,
                                 it
                             )
                         }
@@ -538,7 +544,7 @@ private fun CardHeader(data: FullInfo, clickHandler: () -> Unit, expanded: Boole
                         "appie" -> "Albert Heijn"
                         "jumbo" -> "Jumbo"
                         else -> "???"
-                    }) + ")")
+                    }) + " " + data.receipt.accountId.toString() + ")")
             Text(
                 text = remember { convertCentsToString(data.receipt.totalAmount) },
                 style = MaterialTheme.typography.headlineMedium,
@@ -690,11 +696,12 @@ fun Beepy() {
 fun AccountButtonPreview() {
     PaylinkTheme {
         Surface {
-            ConnectAccountButton(
+            ConnectAccountList(
                 title = "Preview",
                 icon = Icons.Rounded.Handyman,
-                isConnected = true,
-                onClickHandler = {})
+                connections = listOf(DatabaseAuthState(state = "", platform = LinkablePlatform.LIDL, id = 1), DatabaseAuthState(state = "", platform = LinkablePlatform.LIDL, id = 2)),
+                onAdd = {},
+                onRemove = {})
         }
     }
 }
@@ -732,7 +739,8 @@ private fun CardPreview() {
             date = "2023-04-28T17:55:04+00:00",
             storeProvidedId = "220006738220230428206050",
             store = "lidl",
-            totalAmount = 4394
+            totalAmount = 4394,
+            accountId = 0
         ), selectedItems = setOf(0)
     )
 
